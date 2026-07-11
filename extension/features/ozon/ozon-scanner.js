@@ -938,6 +938,14 @@
       })[0];
       if (!root) return null;
 
+      // A plain Ozon description also lives inside #section-description.
+      // Do not convert ordinary text into fake raTextBlock JSON unless the DOM
+      // contains evidence that Ozon actually rendered Rich Content.
+      const rootWidget = String(root.getAttribute && root.getAttribute('data-widget') || '').toLowerCase();
+      const hasRichDomEvidence = /rich.?content/.test(rootWidget) ||
+        !!root.querySelector('img, [widgetdata], [data-widget-data], [data-rich-content], [data-rich-content-json], [class^="RA-"], [class*=" RA-"]');
+      if (!hasRichDomEvidence) return null;
+
       const content = [];
       const widgets = [];
       const cards = [];
@@ -1583,7 +1591,7 @@
           return [];
         }
         const out = [];
-        const seenSku = Object.create(null);
+        const bySku = Object.create(null);
         for (let i = 0; i < w.aspects.length; i++) {
           const a = w.aspects[i] || {};
           const variants = Array.isArray(a.variants) ? a.variants : [];
@@ -1591,9 +1599,14 @@
             const v = variants[j] || {};
             const d = v.data || {};
             const skuId = String(v.sku || '');
-            if (!skuId || seenSku[skuId]) continue;
-            seenSku[skuId] = 1;
-            out.push({
+            if (!skuId) continue;
+            const aspectAttributes = this._parseAspectAttributes(a, d);
+            if (bySku[skuId]) {
+              Object.assign(bySku[skuId].attributes, aspectAttributes);
+              if (!bySku[skuId].searchableText && d.searchableText) bySku[skuId].searchableText = d.searchableText;
+              continue;
+            }
+            const item = {
               sku: skuId,
               title: d.title || '',
               price: parsePrice(d.price),
@@ -1604,9 +1617,11 @@
               variantLabel: d.searchableText || '',
               picture: stripImageSize(d.picture || ''),
               stock: 0,
-              attributes: this._parseAttributes(d.searchableText || d.title || ''),
+              attributes: aspectAttributes,
               _source: 'aspectsNew',
-            });
+            };
+            bySku[skuId] = item;
+            out.push(item);
           }
         }
         console.log('[GeekOzon] fetchVariants 提取到 ' + out.length + ' 个变体', out.length ? '首个标题: ' + out[0].title : '(无)');
@@ -1647,7 +1662,7 @@
         const aspectsWidget = parseWidget(json, 'webAspects-');
         const variants = [];
         if (aspectsWidget && Array.isArray(aspectsWidget.aspects)) {
-          const seenSku = Object.create(null);
+          const bySku = Object.create(null);
           for (let i = 0; i < aspectsWidget.aspects.length; i++) {
             const a = aspectsWidget.aspects[i] || {};
             const aVariants = Array.isArray(a.variants) ? a.variants : [];
@@ -1655,9 +1670,14 @@
               const v = aVariants[j] || {};
               const d = v.data || {};
               const skuId = String(v.sku || '');
-              if (!skuId || seenSku[skuId]) continue;
-              seenSku[skuId] = 1;
-              variants.push({
+              if (!skuId) continue;
+              const aspectAttributes = this._parseAspectAttributes(a, d);
+              if (bySku[skuId]) {
+                Object.assign(bySku[skuId].attributes, aspectAttributes);
+                if (!bySku[skuId].searchableText && d.searchableText) bySku[skuId].searchableText = d.searchableText;
+                continue;
+              }
+              const item = {
                 sku: skuId,
                 title: d.title || '',
                 price: parsePrice(d.price),
@@ -1668,9 +1688,11 @@
                 variantLabel: d.searchableText || '',
                 picture: stripImageSize(d.picture || ''),
                 stock: 0,
-                attributes: this._parseAttributes(d.searchableText || d.title || ''),
+                attributes: aspectAttributes,
                 _source: 'productDetail',
-              });
+              };
+              bySku[skuId] = item;
+              variants.push(item);
             }
           }
         }
@@ -1892,15 +1914,37 @@
             else out[k] = v;
           }
         } else if (p) {
-          // 无冒号，按位置分（"черный M" → color/size）
+          // Plain variant labels can be a color, size, model or arbitrary
+          // seller option. Do not classify every label as color.
           const cleanPart = p.replace(/^\s*\d+\s*(?:спиц(?:ы)?|骨)?\s*[-–—:]\s*/i, '').trim();
           if (!cleanPart) continue;
-          if (!out.color) out.color = cleanPart;
-          else if (!out.size) out.size = cleanPart;
+          const looksColor = /(?:^|\s)(черн|бел|сер|беж|красн|син|голуб|зелен|зелён|желт|жёлт|розов|фиолет|корич|оранж|black|white|grey|gray|beige|red|blue|green|yellow|pink|purple|brown|orange)(?:\w*)/i.test(cleanPart);
+          const looksSize = /(?:^|\s)(?:\d{1,3}\s*[–—-]\s*\d{1,3}|\d{1,3}\s*RU|XX?S|[SML]|X{1,4}L)(?:\s|$|\/)/i.test(cleanPart);
+          if (looksColor && !out.color) out.color = cleanPart;
+          else if (looksSize && !out.size) out.size = cleanPart;
+          else if (!out.variant) out.variant = cleanPart;
           else out['attr' + (Object.keys(out).length + 1)] = cleanPart;
         }
       }
       return out;
+    }
+
+    /** Preserve the Ozon aspect name so ERP can rebuild category SKU fields. */
+    _parseAspectAttributes(aspect, data) {
+      const value = String(data && (data.searchableText || data.title) || '').trim();
+      const rawName = String(
+        aspect && (aspect.name || aspect.title || aspect.aspectName || aspect.label) || ''
+      ).replace(/[:：]+$/, '').trim();
+      if (!value) return {};
+      if (!rawName) return this._parseAttributes(value);
+
+      const name = rawName.toLowerCase();
+      if (/цвет товара|商品颜色|product color/.test(name)) return { '商品颜色（Цвет товара）': value };
+      if (/название цвета|颜色名称|color name/.test(name)) return { '颜色名称（Название цвета）': value };
+      if (/российский размер|俄罗斯尺码|russian size/.test(name)) return { '俄罗斯尺码（Российский размер）': value };
+      if (/размер производителя|制造商.*尺码|manufacturer size/.test(name)) return { '由制造商规定尺码（Размер производителя）': value };
+      if (/количество пар в упаковке|每个包装的对数|pairs.*pack/.test(name)) return { '每个包装的对数（Количество пар в упаковке）': value };
+      return { [rawName]: value };
     }
 
     /**
@@ -2111,6 +2155,7 @@
       const richContent = this.extractRichContent();
       if (richContent) {
         product.richContent = richContent;
+        product.contentType = 'rich_content';
 
         // 编译：richContent 对象 → JSON 字符串（紧凑格式，减少体积）
         let richContentJsonStr = '';
@@ -2141,6 +2186,7 @@
 
       // === 新增：提取商品描述（纯文本） ===
       product.description = richContent ? '' : this.extractDescription();
+      if (!richContent) product.contentType = product.description ? 'plain_description' : 'none';
 
       // === 新增：提取详情图片（Rich Content 富文本中的图片） ===
       // Ozon 描述区有两种形态：纯文本描述（无图片）和 Rich Content 富文本（含 img.RA-k2）
@@ -2379,6 +2425,7 @@
       const latestRichContent = this.extractRichContent();
       if (latestRichContent) {
         product.richContent = latestRichContent;
+        product.contentType = 'rich_content';
         product.description = '';
         let richJson = '';
         try { richJson = JSON.stringify(latestRichContent); } catch (_) {}

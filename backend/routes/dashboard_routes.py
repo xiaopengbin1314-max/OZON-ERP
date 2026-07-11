@@ -26,6 +26,7 @@ def get_dashboard_stats():
     today_collected = _count_today_collected()
     pending_publish = _count_pending_publish()
     published_total = _count_published()
+    failed_publish = _count_failed_publish()
 
     ai_config = get_ai_config()
     ai_has_key = bool(ai_config.get('api_key'))
@@ -56,12 +57,12 @@ def get_dashboard_stats():
             'trendValue': '—',
         },
         {
-            'key': 'aiStatus',
-            'label': 'AI 引擎',
-            'value': ai_has_key,
-            'icon': 'sparkles',
+            'key': 'failedPublish',
+            'label': '发布异常',
+            'value': failed_publish,
+            'icon': 'circle-alert',
             'trend': 'flat',
-            'trendValue': ai_config.get('name', '') or '未配置',
+            'trendValue': '—',
         },
     ]
 
@@ -125,6 +126,18 @@ def _count_published():
     try:
         stats = OnlineProduct.get_stats()
         return stats.get('total', 0)
+    except Exception:
+        return 0
+
+
+def _count_failed_publish():
+    """统计需要人工处理的发布异常。"""
+    try:
+        products = Product.find_all()
+        return sum(
+            1 for product in products
+            if product.get('publishStatus') in ('failed', 'published_with_errors')
+        )
     except Exception:
         return 0
 

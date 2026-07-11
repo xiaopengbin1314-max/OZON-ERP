@@ -186,9 +186,31 @@
       // 展开时注册外部点击监听（点击面板外自动收起）
       if (!this.collapsed) {
         this._registerOutsideClick();
+        requestAnimationFrame(() => this._fitExpandedPanel());
       } else {
         this._unregisterOutsideClick();
       }
+    }
+
+    /** Keep the expanded command panel inside the visible viewport. */
+    _fitExpandedPanel() {
+      const panel = this.shadow && this.shadow.querySelector('.go-fb-panel');
+      if (!panel || this.collapsed) return;
+      panel.classList.remove('is-left');
+      panel.style.top = '22px';
+      panel.style.transform = 'translateY(-50%)';
+      let rect = panel.getBoundingClientRect();
+      const margin = 8;
+      if (rect.right > window.innerWidth - margin) {
+        panel.classList.add('is-left');
+        rect = panel.getBoundingClientRect();
+      }
+      let correction = 0;
+      if (rect.top < margin) correction = margin - rect.top;
+      if (rect.bottom + correction > window.innerHeight - margin) {
+        correction += window.innerHeight - margin - (rect.bottom + correction);
+      }
+      panel.style.transform = 'translateY(calc(-50% + ' + correction + 'px))';
     }
 
     /** 注册外部点击监听 */
@@ -248,6 +270,7 @@
 
       if (!this.collapsed) {
         this._registerOutsideClick();
+        requestAnimationFrame(() => this._fitExpandedPanel());
       }
       return this;
     }
@@ -280,8 +303,9 @@
 
       return base + `
         .go-fb {
-          display: inline-flex;
-          align-items: center;
+          position: relative;
+          width: 44px;
+          height: 44px;
           font-family: inherit;
         }
 
@@ -328,40 +352,73 @@
 
         /* ===== 展开面板（纯色背景，禁用 backdrop-filter 提升性能） ===== */
         .go-fb-panel {
+          position: absolute;
+          left: 38px;
+          top: 22px;
+          transform: translateY(-50%) translateX(-8px) scale(.98);
+          transform-origin: left center;
           display: flex;
-          align-items: center;
-          gap: ${spaceXs};
-          padding: ${spaceSm};
-          margin-left: -6px;
-          padding-left: 12px;
+          flex-direction: column;
+          width: 248px;
+          max-width: calc(100vw - 60px);
+          max-height: calc(100vh - 16px);
+          padding: 0;
           background: ${bgBase};
           border: 1px solid ${border};
-          border-left: none;
-          border-radius: 0 ${radiusLg} ${radiusLg} 0;
+          border-radius: ${radiusMd};
           box-shadow: ${SH.lg || '0 10px 15px -3px rgba(15,23,42,0.08)'};
-          overflow: hidden;
-          max-width: 0;
+          overflow-x: hidden;
+          overflow-y: auto;
           opacity: 0;
+          visibility: hidden;
           pointer-events: none;
-          transition: max-width ${dur} ${easingOut}, opacity ${durFast} ${easing};
+          transition: opacity ${durFast} ${easing}, transform ${dur} ${easingOut}, visibility ${durFast};
         }
+        .go-fb-panel.is-left { left:auto; right:38px; transform-origin:right center; }
         .go-fb[data-state="expanded"] .go-fb-panel {
-          max-width: 320px;
           opacity: 1;
+          visibility: visible;
           pointer-events: auto;
+          transform: translateY(-50%) translateX(0) scale(1);
         }
+
+        .go-fb-panel-head {
+          position: sticky;
+          top: 0;
+          z-index: 2;
+          min-height: 54px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+          padding: 9px 11px;
+          border-bottom: 1px solid ${border};
+          background: ${C.bgSubtle || '#f8fafc'};
+        }
+        .go-fb-brand { min-width: 0; }
+        .go-fb-brand strong { display:block; font-size:12px; line-height:1.3; color:${textPrimary}; }
+        .go-fb-brand span { display:block; margin-top:2px; max-width:155px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:9px; color:${textSecondary}; }
+        .go-fb-live { flex:0 0 auto; display:inline-flex; align-items:center; gap:4px; font-size:9px; color:${C.success || '#15805d'}; }
+        .go-fb-live::before { content:''; width:6px; height:6px; border-radius:50%; background:currentColor; }
+        .go-fb-section-label { padding:8px 11px 5px; font-size:9px; font-weight:600; color:${C.textMuted || '#94a3b8'}; }
+        .go-fb-actions { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; padding:0 9px 10px; }
+        .go-fb-actions--main { grid-template-columns:repeat(2,minmax(0,1fr)); padding-top:9px; }
+        .go-fb-actions--footer { grid-template-columns:repeat(2,minmax(0,1fr)); padding-bottom:9px; }
+        .go-fb-divider { height:1px; background:${border}; }
 
         /* ===== 操作按钮 ===== */
         .go-fb-btn {
-          width: 36px; height: 36px;
-          border: 1px solid transparent;
-          border-radius: ${radiusMd};
-          background: transparent;
+          width: 100%; height: 54px;
+          border: 1px solid ${border};
+          border-radius: ${R.sm || '6px'};
+          background: ${bgBase};
           color: ${textSecondary};
           cursor: pointer;
           display: inline-flex;
           align-items: center;
           justify-content: center;
+          flex-direction: column;
+          gap: 3px;
           position: relative;
           flex-shrink: 0;
           transition: background ${durFast} ${easing}, color ${durFast} ${easing}, border-color ${durFast} ${easing}, transform ${durFast} ${easing};
@@ -369,6 +426,7 @@
         .go-fb-btn:hover {
           background: ${bgMuted};
           color: ${textPrimary};
+          border-color: ${C.borderStrong || '#cbd5e1'};
         }
         .go-fb-btn .go-fb-icon {
           display: inline-flex;
@@ -381,6 +439,8 @@
           color: ${textInverse};
           box-shadow: ${SH.xs || '0 1px 2px 0 rgba(15,23,42,0.05)'};
         }
+        .go-fb-btn--wide { height:44px; flex-direction:row; gap:7px; }
+        .go-fb-btn--wide .go-fb-tip { width:auto; font-size:10px; }
         .go-fb-btn--primary:hover {
           background: ${primaryHover};
           color: ${textInverse};
@@ -411,48 +471,32 @@
 
         /* ===== Tooltip ===== */
         .go-fb-tip {
-          position: absolute;
-          left: calc(100% + 10px);
-          top: 50%;
-          transform: translateY(-50%) translateX(-4px);
-          background: ${textPrimary};
-          color: ${textInverse};
-          font-size: 12px;
+          position: static;
+          display: block;
+          width: 100%;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          background: transparent;
+          color: inherit;
+          font-size: 9px;
           font-weight: 500;
-          padding: 5px 10px;
-          border-radius: ${R.base || '8px'};
+          line-height: 1.2;
+          padding: 0;
           white-space: nowrap;
-          opacity: 0;
-          pointer-events: none;
-          transition: opacity ${durFast} ${easing}, transform ${durFast} ${easingOut};
-          z-index: 10;
-          box-shadow: ${SH.md || '0 4px 6px -1px rgba(15,23,42,0.1)'};
-          font-family: inherit;
-        }
-        .go-fb-tip::before {
-          content: '';
-          position: absolute;
-          left: -4px;
-          top: 50%;
-          transform: translateY(-50%) rotate(45deg);
-          width: 8px; height: 8px;
-          background: ${textPrimary};
-        }
-        .go-fb-btn:hover .go-fb-tip {
           opacity: 1;
-          transform: translateY(-50%) translateX(0);
-        }
-        .go-fb-tip-kbd {
-          display: inline-block;
-          margin-left: 6px;
-          padding: 1px 5px;
-          background: rgba(255,255,255,0.18);
-          border-radius: 4px;
-          font-size: 10px;
+          pointer-events: none;
           font-family: inherit;
+          text-align: center;
         }
+        .go-fb-tip-kbd { display:none; }
 
         @keyframes goFbSpin { to { transform: rotate(360deg); } }
+        @media (max-width: 420px) {
+          .go-fb-panel { width: min(232px, calc(100vw - 56px)); }
+          .go-fb-actions { grid-template-columns:repeat(2,minmax(0,1fr)); }
+          .go-fb-btn { height:48px; }
+          .go-fb-brand span { max-width:135px; }
+        }
       `;
     }
 
@@ -511,35 +555,40 @@
           </span>
         </button>
         <div class="go-fb-panel">
-          <button class="go-fb-btn go-fb-btn--primary" id="goFbCollect" aria-label="采集商品">
-            ${this.iconSvg('collect')}
-            <span class="go-fb-tip">采集商品<span class="go-fb-tip-kbd">Ctrl+Shift+C</span></span>
-          </button>
+          <div class="go-fb-panel-head">
+            <div class="go-fb-brand"><strong>GeekOzon 工具</strong><span>${G.utils.escapeHtml(document.title || location.hostname)}</span></div>
+            <span class="go-fb-live">已就绪</span>
+          </div>
+          <div class="go-fb-actions go-fb-actions--main">
+            <button class="go-fb-btn go-fb-btn--primary go-fb-btn--wide" id="goFbCollect" aria-label="采集商品">
+              ${this.iconSvg('collect')}<span class="go-fb-tip">采集商品</span>
+            </button>
+            <button class="go-fb-btn go-fb-btn--wide" id="goFbPublish" aria-label="一键上架">
+              ${this.iconSvg('publish')}<span class="go-fb-tip">一键上架</span>
+            </button>
+          </div>
+          <div class="go-fb-divider"></div>
+          <div class="go-fb-section-label">商品工具</div>
+          <div class="go-fb-actions">
           ${location.hostname.indexOf('ozon.') === -1 ? `
           <button class="go-fb-btn" id="goFbCopyImages" aria-label="复制图片">
             ${this.iconSvg('copy')}
-            <span class="go-fb-tip">复制图片</span>
+            <span class="go-fb-tip">图片</span>
           </button>` : ''}
-          <button class="go-fb-btn" id="goFbPublish" aria-label="一键上架">
-            ${this.iconSvg('publish')}
-            <span class="go-fb-tip">一键上架</span>
-          </button>
           <button class="go-fb-btn" id="goFbProfit" aria-label="计算利润">
             ${this.iconSvg('profit')}
-            <span class="go-fb-tip">计算利润</span>
+            <span class="go-fb-tip">利润</span>
           </button>
           <button class="go-fb-btn" id="goFbPricing" aria-label="定价工具">
             ${this.iconSvg('pricing')}
-            <span class="go-fb-tip">定价工具</span>
+            <span class="go-fb-tip">定价</span>
           </button>
-          <button class="go-fb-btn" id="goFbErp" aria-label="打开 ERP">
-            ${this.iconSvg('erp')}
-            <span class="go-fb-tip">打开 ERP 后台</span>
-          </button>
-          <button class="go-fb-btn" id="goFbSettings" aria-label="设置">
-            ${this.iconSvg('settings')}
-            <span class="go-fb-tip">扩展设置</span>
-          </button>
+          </div>
+          <div class="go-fb-divider"></div>
+          <div class="go-fb-actions go-fb-actions--footer">
+            <button class="go-fb-btn go-fb-btn--wide" id="goFbErp" aria-label="打开 ERP">${this.iconSvg('erp')}<span class="go-fb-tip">打开 ERP</span></button>
+            <button class="go-fb-btn go-fb-btn--wide" id="goFbSettings" aria-label="设置">${this.iconSvg('settings')}<span class="go-fb-tip">设置</span></button>
+          </div>
         </div>
       `;
     }
@@ -564,6 +613,9 @@
           </span>
         </button>
         <div class="go-fb-panel">
+          <div class="go-fb-panel-head"><div class="go-fb-brand"><strong>Ozon Seller 工具</strong><span>卖家中心桥接与刊登辅助</span></div><span class="go-fb-live">已注入</span></div>
+          <div class="go-fb-section-label">连接</div>
+          <div class="go-fb-actions go-fb-actions--main">
           <button class="go-fb-btn go-fb-btn--primary" id="goFbBindCookie" aria-label="绑定Cookie">
             ${this.iconSvg('cookie')}
             <span class="go-fb-tip">绑定 Cookie</span>
@@ -572,6 +624,9 @@
             ${this.iconSvg('shield')}
             <span class="go-fb-tip">检查桥接状态</span>
           </button>
+          </div>
+          <div class="go-fb-section-label">工具</div>
+          <div class="go-fb-actions">
           <button class="go-fb-btn" id="goFbProfit" aria-label="计算利润">
             ${this.iconSvg('profit')}
             <span class="go-fb-tip">计算利润</span>
@@ -584,6 +639,7 @@
             ${this.iconSvg('erp')}
             <span class="go-fb-tip">进入 ERP 后台</span>
           </button>
+          </div>
         </div>
       `;
     }

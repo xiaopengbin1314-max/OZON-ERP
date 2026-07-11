@@ -2334,6 +2334,23 @@ function generateSkuTable() {
     combos = next;
   });
 
+  // Ozon collection already provides authoritative SKU combinations. Rebuilding
+  // those rows as a Cartesian product creates variants that never existed.
+  const savedOzonSkus = window._editingProduct?.platform === 'ozon' && Array.isArray(window._editingProduct?.skus)
+    ? window._editingProduct.skus : [];
+  const savedOzonCombos = savedOzonSkus
+    .map(sku => sku?.combo && typeof sku.combo === 'object' ? { ...sku.combo } : null)
+    .filter(combo => combo && Object.keys(combo).length > 0);
+  if (savedOzonCombos.length === savedOzonSkus.length && savedOzonCombos.length > 0) {
+    const seenSavedCombos = new Set();
+    combos = savedOzonCombos.filter(combo => {
+      const signature = Object.keys(combo).sort().map(key => `${key}:${combo[key]}`).join('||');
+      if (seenSavedCombos.has(signature)) return false;
+      seenSavedCombos.add(signature);
+      return true;
+    });
+  }
+
   // 限制最多 50 个 SKU
   if (combos.length > 50) {
     combos = combos.slice(0, 50);
@@ -6471,12 +6488,26 @@ if (!document.getElementById('rich-hover-toolbar-style')) {
   const style = document.createElement('style');
   style.id = 'rich-hover-toolbar-style';
   style.textContent = `
-    .rich-toolbar { display:flex; justify-content:flex-end; gap:6px; margin-bottom:8px; }
-    .rich-toolbar button { font-size:12px; padding:5px 10px; border-radius:4px; cursor:pointer; background:#fff; }
-    .rich-toolbar button:hover { background:#f4f7fb; }
-    .rich-inline-preview { width:100%; max-height:620px; overflow:auto; border:1px solid #dfe5ec; background:#fff; padding:16px; }
+    .rich-workspace { width:100%; border:1px solid var(--border-color,#dfe5ec); background:var(--bg-primary,#fff); border-radius:6px; overflow:hidden; }
+    .rich-workspace-head { min-height:52px; display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 12px; border-bottom:1px solid var(--border-color,#e5e9ef); background:var(--bg-secondary,#f8fafc); }
+    .rich-workspace-title { min-width:0; display:flex; align-items:center; gap:8px; font-size:13px; font-weight:600; color:var(--text-primary,#17202a); }
+    .rich-status { flex:0 0 auto; display:inline-flex; align-items:center; min-height:22px; padding:2px 8px; border-radius:999px; font-size:11px; font-weight:500; background:#eef2f6; color:#5f6f7f; }
+    .rich-status.is-valid { background:#e9f7ef; color:#16794b; }
+    .rich-status.is-error { background:#fff0ed; color:#b93824; }
+    .rich-toolbar { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; padding:10px 12px; border-bottom:1px solid var(--border-color,#e5e9ef); }
+    .rich-toolbar-group { display:flex; align-items:center; gap:6px; }
+    .rich-toolbar button { min-height:30px; font-size:12px; padding:5px 10px; border:1px solid var(--border-color,#cbd5e1); border-radius:4px; cursor:pointer; background:var(--bg-primary,#fff); color:var(--text-secondary,#475569); white-space:nowrap; }
+    .rich-toolbar button:hover { background:var(--bg-secondary,#f4f7fb); border-color:#94a3b8; }
+    .rich-toolbar .rich-primary { color:#fff; background:#2563eb; border-color:#2563eb; font-weight:500; }
+    .rich-toolbar .rich-primary:hover { background:#1d4ed8; border-color:#1d4ed8; }
+    .rich-segmented { display:inline-flex; padding:2px; border:1px solid var(--border-color,#d7dee7); border-radius:5px; background:var(--bg-secondary,#f4f6f8); }
+    .rich-segmented button { min-height:26px; padding:3px 10px; border:0; background:transparent; }
+    .rich-segmented button.is-active { background:var(--bg-primary,#fff); color:var(--text-primary,#17202a); box-shadow:0 1px 2px rgba(15,23,42,.12); }
+    .rich-meta { display:flex; align-items:center; gap:14px; min-height:34px; padding:7px 12px; border-bottom:1px solid var(--border-color,#e5e9ef); font-size:11px; color:var(--text-tertiary,#778493); }
+    .rich-inline-preview { width:100%; min-height:300px; max-height:580px; overflow:auto; background:#fff; padding:18px; }
     .rich-inline-preview img { display:block; max-width:100%; object-fit:cover; }
-    .rich-preview-empty, .rich-preview-error { min-height:110px; display:flex; align-items:center; justify-content:center; color:#8491a0; font-size:13px; }
+    .rich-preview-empty, .rich-preview-error { min-height:260px; display:flex; flex-direction:column; gap:12px; align-items:center; justify-content:center; color:#8491a0; font-size:13px; text-align:center; }
+    .rich-preview-empty button { min-height:32px; padding:6px 12px; border:1px solid #2563eb; border-radius:4px; background:#fff; color:#2563eb; cursor:pointer; }
     .rich-preview-error { color:#c2410c; }
     .rc-widget { width:100%; margin:0 0 20px; }
     .rc-text-block { padding:16px 20px; }
@@ -6499,9 +6530,17 @@ if (!document.getElementById('rich-hover-toolbar-style')) {
     .rc-list li { margin-bottom:8px; }
     .rc-table { width:100%; border-collapse:collapse; font-size:13px; }
     .rc-table th, .rc-table td { border:1px solid #dfe5ec; padding:8px; text-align:left; }
-    .rich-code-editor { display:none; width:100%; margin-top:8px; font-family:monospace; font-size:12px; resize:vertical; }
-    .rich-code-editor.is-visible { display:block; }
+    .rich-code-pane { display:none; background:#111827; }
+    .rich-code-pane.is-visible { display:block; }
+    .rich-code-actions { display:flex; justify-content:flex-end; gap:6px; padding:8px 10px; border-bottom:1px solid #273244; }
+    .rich-code-actions button { min-height:28px; padding:4px 9px; border:1px solid #3b475a; border-radius:4px; background:#1f2937; color:#d7deea; font-size:11px; cursor:pointer; }
+    .rich-code-editor { display:block; width:100%; min-height:320px; margin:0; padding:14px; border:0!important; border-radius:0!important; outline:none; background:#111827!important; color:#dbe7f5!important; font-family:Consolas,'Courier New',monospace; font-size:12px; line-height:1.6; resize:vertical; }
     @media (max-width:760px) {
+      .rich-workspace-head { align-items:flex-start; }
+      .rich-toolbar { align-items:stretch; }
+      .rich-toolbar-group { width:100%; justify-content:space-between; overflow-x:auto; }
+      .rich-segmented { flex:0 0 auto; }
+      .rich-inline-preview { min-height:240px; padding:12px; }
       .rc-chess-row, .rc-chess-row.reverse { flex-direction:column; align-items:stretch; }
       .rc-tiles.cols-3, .rc-tiles.cols-4 { grid-template-columns:repeat(2,minmax(0,1fr)); }
     }
@@ -6546,18 +6585,34 @@ function buildRichContentField(container, attr) {
 
   container.innerHTML = `
     <div class="attr-item ${requiredClass}" style="display:flex;flex-direction:column;align-items:flex-start;position:relative;">
-      <span style="font-size:12px;color:var(--text-secondary);text-align:left;width:100%;">${escapeHtml(finalAttr.name)} ${requiredMark} ${descTip}</span>
-      <div class="rich-textarea-wrap" style="position:relative;width:100%;margin-top:4px;">
-        <div class="rich-toolbar">
-          <button type="button" onclick="openRichEditorModal()" title="打开可视化编辑器" style="border:1px solid #2563eb;color:#2563eb;">编辑富文本</button>
-          <button type="button" onclick="previewRichJson(this)" title="全屏预览" style="border:1px solid #cbd5e1;color:#475569;">全屏预览</button>
-          <button type="button" onclick="toggleRichCode(this)" title="查看或修改 JSON" style="border:1px solid #cbd5e1;color:#475569;">查看代码</button>
-          <button type="button" onclick="clearRichContent(this)" title="清空" style="border:1px solid #dc2626;color:#dc2626;">清空</button>
+      <div class="rich-workspace">
+        <div class="rich-workspace-head">
+          <div class="rich-workspace-title"><span>${escapeHtml(finalAttr.name)}</span>${requiredMark}${descTip}</div>
+          <span id="richPreviewStatus" class="rich-status">空内容</span>
         </div>
+        <div class="rich-toolbar">
+          <div class="rich-toolbar-group">
+            <button type="button" class="rich-primary" onclick="openRichEditorModal()">可视化编辑</button>
+            <div class="rich-segmented" role="tablist" aria-label="富内容视图">
+              <button type="button" class="is-active" data-rich-view="preview" onclick="selectRichView('preview')">预览</button>
+              <button type="button" data-rich-view="code" onclick="selectRichView('code')">JSON</button>
+            </div>
+          </div>
+          <div class="rich-toolbar-group">
+            <button type="button" onclick="previewRichJson(this)" title="全屏预览">全屏</button>
+            <button type="button" onclick="clearRichContent(this)" title="清空富内容">清空</button>
+          </div>
+        </div>
+        <div id="richContentMeta" class="rich-meta"><span>0 个组件</span><span>0 张图片</span><span>版本 -</span></div>
         <div id="richInlinePreview" class="rich-inline-preview"></div>
-        <textarea class="form-input attr-field rich-code-editor" data-attr-id="${finalAttr.id}" data-attr-name="${escapeAttr(finalAttr.name)}" data-required="${finalAttr.required ? '1' : '0'}" rows="10" placeholder="粘贴 JSON 富内容模板..." oninput="validateAttrField(this);renderRichInlinePreview();">${escapeHtml(defaultVal)}</textarea>
+        <div id="richCodePane" class="rich-code-pane">
+          <div class="rich-code-actions">
+            <button type="button" onclick="formatRichCode()">格式化</button>
+            <button type="button" onclick="copyRichCode(this)">复制</button>
+          </div>
+          <textarea class="form-input attr-field rich-code-editor" data-attr-id="${finalAttr.id}" data-attr-name="${escapeAttr(finalAttr.name)}" data-required="${finalAttr.required ? '1' : '0'}" rows="12" placeholder="粘贴 JSON 富内容模板..." spellcheck="false" oninput="validateAttrField(this);renderRichInlinePreview();">${escapeHtml(defaultVal)}</textarea>
+        </div>
       </div>
-      <span id="richPreviewStatus" style="font-size:11px;color:var(--text-tertiary, #999);margin-top:4px;"></span>
     </div>`;
   renderRichInlinePreview();
 }
@@ -6576,11 +6631,9 @@ function updateRichContentMeta(container, attr) {
   field.dataset.required = finalAttr.required ? '1' : '0';
 
   // 更新 label 文本
-  const labelSpan = wrapper.querySelector('span');
+  const labelSpan = wrapper.querySelector('.rich-workspace-title > span:first-child');
   if (labelSpan) {
-    const requiredMark = finalAttr.required ? '<span class="required">*</span>' : '';
-    const descTip = finalAttr.description ? '<span class="label-tooltip" title="' + finalAttr.description.replace(/"/g, '&quot;') + '">?</span>' : '';
-    labelSpan.innerHTML = escapeHtml(finalAttr.name) + ' ' + requiredMark + ' ' + descTip;
+    labelSpan.textContent = finalAttr.name;
   }
 
   // 更新 required 样式
@@ -6671,24 +6724,71 @@ function renderRichInlinePreview() {
   const preview = document.getElementById('richInlinePreview');
   if (!ta || !preview) return;
   const raw = ta.value.trim();
+  const status = document.getElementById('richPreviewStatus');
+  const meta = document.getElementById('richContentMeta');
   if (!raw) {
-    preview.innerHTML = '<div class="rich-preview-empty">暂无富内容</div>';
+    preview.innerHTML = '<div class="rich-preview-empty"><span>暂无富内容</span><button type="button" onclick="openRichEditorModal()">创建富内容</button></div>';
+    if (status) { status.textContent = '空内容'; status.className = 'rich-status'; }
+    if (meta) meta.innerHTML = '<span>0 个组件</span><span>0 张图片</span><span>版本 -</span>';
     return;
   }
   try {
-    const html = _renderRichContentHtml(JSON.parse(raw));
+    const obj = JSON.parse(raw);
+    if (!obj || !Array.isArray(obj.content)) throw new Error('缺少 content 数组');
+    const html = _renderRichContentHtml(obj);
     preview.innerHTML = html || '<div class="rich-preview-empty">暂无可预览内容</div>';
+    const imageCount = preview.querySelectorAll('img').length;
+    if (status) { status.textContent = '有效'; status.className = 'rich-status is-valid'; }
+    if (meta) meta.innerHTML = '<span>' + obj.content.length + ' 个组件</span><span>' + imageCount + ' 张图片</span><span>版本 ' + _escapeHtml(obj.version || '-') + '</span>';
   } catch (e) {
     preview.innerHTML = '<div class="rich-preview-error">JSON 格式错误：' + _escapeHtml(e.message) + '</div>';
+    if (status) { status.textContent = '格式错误'; status.className = 'rich-status is-error'; }
+    if (meta) meta.innerHTML = '<span>无法读取内容统计</span>';
   }
 }
 
-function toggleRichCode(btn) {
+function selectRichView(view) {
+  const preview = document.getElementById('richInlinePreview');
+  const pane = document.getElementById('richCodePane');
+  if (!preview || !pane) return;
+  const codeMode = view === 'code';
+  preview.style.display = codeMode ? 'none' : 'block';
+  pane.classList.toggle('is-visible', codeMode);
+  document.querySelectorAll('[data-rich-view]').forEach(button => {
+    button.classList.toggle('is-active', button.dataset.richView === view);
+  });
+  if (codeMode) pane.querySelector('textarea')?.focus();
+}
+
+function toggleRichCode() {
+  const pane = document.getElementById('richCodePane');
+  selectRichView(pane?.classList.contains('is-visible') ? 'preview' : 'code');
+}
+
+function formatRichCode() {
   const ta = document.querySelector('#richContentAttr textarea.attr-field');
-  if (!ta) return;
-  const visible = ta.classList.toggle('is-visible');
-  if (btn) btn.textContent = visible ? '隐藏代码' : '查看代码';
-  if (visible) ta.focus();
+  if (!ta || !ta.value.trim()) return;
+  try {
+    ta.value = JSON.stringify(JSON.parse(ta.value), null, 2);
+    renderRichInlinePreview();
+    validateAttrField(ta);
+  } catch (_) {
+    renderRichInlinePreview();
+  }
+}
+
+async function copyRichCode(btn) {
+  const ta = document.querySelector('#richContentAttr textarea.attr-field');
+  if (!ta || !ta.value) return;
+  try {
+    await navigator.clipboard.writeText(ta.value);
+    const old = btn.textContent;
+    btn.textContent = '已复制';
+    setTimeout(() => { btn.textContent = old; }, 1200);
+  } catch (_) {
+    ta.select();
+    document.execCommand('copy');
+  }
 }
 
 /**
@@ -6699,11 +6799,8 @@ function clearRichContent(btn) {
   if (!ta) return;
   if (ta.value && !confirm('确定要清空 JSON 富内容吗？此操作不可撤销。')) return;
   ta.value = '';
+  selectRichView('preview');
   renderRichInlinePreview();
-
-  // 重置状态栏
-  const status = document.getElementById('richPreviewStatus');
-  if (status) { status.textContent = ''; status.style.color = ''; }
 
   validateAttrField(ta);
 }
@@ -7692,7 +7789,15 @@ function normalizeCollectedOzonColorData(product) {
   const normalizedIds = [];
   const normalizedNames = [];
 
-  const splitColor = value => String(value || '').split(/\s*,\s*/).map(v => v.trim()).filter(Boolean);
+  const splitColor = value => String(value || '').split(/[,，;]+/).map(v => v.trim()).filter(Boolean);
+  const collectedColorPattern = /(黑|白|灰|米|红|蓝|绿|黄|粉|紫|棕|橙|черн|бел|сер|беж|красн|син|голуб|зелен|зелён|желт|жёлт|розов|фиолет|сирен|корич|оранж|black|white|grey|gray|beige|red|blue|green|yellow|pink|purple|brown|orange)/i;
+  const selectPrimaryColor = value => {
+    const parts = splitColor(value);
+    const colorParts = parts.filter(part => collectedColorPattern.test(part));
+    const hasNonColorSpec = parts.some(part => !collectedColorPattern.test(part));
+    if (hasNonColorSpec && colorParts.length) return colorParts[colorParts.length - 1];
+    return colorParts[0] || parts[0] || '';
+  };
   const cleanColorName = value => String(value || '')
     .replace(/^\s*\d+\s*(?:спиц(?:ы)?|骨)?\s*[-–—:]\s*/i, '')
     .replace(/\s*\([^)]*[A-ZА-Я]-?\d{3,}[^)]*\)\s*$/i, '')
@@ -7701,9 +7806,10 @@ function normalizeCollectedOzonColorData(product) {
   skus.forEach((sku, index) => {
     if (!sku || typeof sku !== 'object') return;
     if (!sku.combo || typeof sku.combo !== 'object') sku.combo = {};
-    const rawColor = sku.combo[colorKey] ?? sourceValues[index] ?? sourceValues[0] ?? '';
-    const colors = splitColor(rawColor);
-    const primaryColor = colors[0] || '';
+    let rawColor = sku.combo[colorKey] ?? sourceValues[index] ?? sourceValues[0] ?? '';
+    const rawNameForColor = sku.combo[colorNameKey] ?? colorNameAttr?.values?.[index] ?? colorNameAttr?.values?.[0] ?? '';
+    if (rawColor && !collectedColorPattern.test(String(rawColor)) && rawNameForColor) rawColor = rawNameForColor;
+    const primaryColor = selectPrimaryColor(rawColor);
     const rawIds = sourceIds[index] ?? sourceIds[0] ?? null;
     const ids = Array.isArray(rawIds) ? rawIds.flat(Infinity).filter(Boolean) : [rawIds].filter(Boolean);
     const primaryId = ids[0] ?? null;

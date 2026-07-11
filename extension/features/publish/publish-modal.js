@@ -765,11 +765,19 @@
       }
 
       const sourceUrl = data.sourceUrl || data.originalUrl || location.href;
+      const isEditMode = this._editMode;
       // 主商品的当前售价（来自 webPrice widget）
       const mainPrice = Number(data.price) || 0;
       const mainCardPrice = Number(data.cardPrice) || 0;
       return list.map(function (v, idx) {
-        const sku = v.sku || v.id || v.skuCode || v.offerId || v.offer_id || '';
+        const variantAttributes = v.attributes && !Array.isArray(v.attributes) && typeof v.attributes === 'object'
+          ? v.attributes : {};
+        const variantCombo = v.combo && !Array.isArray(v.combo) && typeof v.combo === 'object'
+          ? v.combo : {};
+        // API variants often expose `attributes`, while ERP rows use `combo`.
+        // Merge both so an empty attributes object cannot hide saved colors.
+        const combo = Object.assign({}, variantAttributes, variantCombo);
+        const sku = v.sourceSku || v.source_sku || v.sku || v.id || '';
         const cover = v.coverImage || v.picture || v.cover_image || v.mainImage ||
           (Array.isArray(v.images) ? v.images[0] : '') ||
           (Array.isArray(data.images) ? data.images[0] : data.mainImage || '');
@@ -782,7 +790,11 @@
           images: Array.isArray(v.images) ? v.images :
             (cover ? [cover] : (Array.isArray(data.images) ? data.images : [])),
           title: v.title || v.name || Object.values(v.combo || {}).join(' / ') || '',
-          offer_id: v.offer_id || v.offerId || v.article || '',
+          // DOM 货号只对应商品级 mergeCode/型号名称。
+          offer_id: data.mergeCode || data.modelCode || data.model_code || '',
+          // 平台 SKU 是内部字段，只用于 ERP SKU 和 Ozon offer_id。
+          platform_sku: isEditMode ? (v.skuCode || v.offerId || v.offer_id || '') : '',
+          sourceSku: v.sourceSku || v.source_sku || sku,
           variant_label: v.variantLabel || v.variant_label || v.searchableText || '',
           sell_price: sellPrice,
           price: 0,
@@ -793,7 +805,7 @@
           custom_height: Number(v.custom_height || v.height) || 0,
           custom_barcode: v.custom_barcode || v.barcode || '',
           _sourceUrl: sourceUrl,
-          combo: v.attributes || v.combo || {},
+          combo: combo,
         };
       });
     }
@@ -2068,7 +2080,7 @@
       if (!this.rows.length) { this._toast('没有可上架的变体', 'err'); return; }
       if (!this.form.shopIds.length) { this._toast('请选择店铺', 'err'); return; }
 
-      // 校验：每行必须有 offer_id 和 price
+      // DOM 货号对应型号名称；平台 SKU 由 ERP 后端模块生成并组装为 Ozon offer_id。
       for (let i = 0; i < this.rows.length; i++) {
         const r = this.rows[i];
         if (!r.offer_id || String(r.offer_id).trim() === '') {
@@ -2101,9 +2113,26 @@
         // 在生成 skuAttrs 前统一键名，并在没有独立颜色名称时保留原始颜色文本。
         const PRODUCT_COLOR_NAME = '商品颜色（Цвет товара）';
         const COLOR_NAME_NAME = '颜色名称（Название цвета）';
-        const savedColorNameAttr = (this.productData.attributes || []).find(function (attr) {
-          return String(attr && (attr.id || attr.attrId || attr.attribute_id) || '') === '10097';
-        });
+        const savedColorNameAttr = (this.productData.skuAttrs || []).concat(this.productData.attributes || [])
+          .find(function (attr) {
+            if (!attr) return false;
+            const attrId = String(attr.id || attr.attrId || attr.attribute_id || '');
+            return attrId === '10097' || /название цвета|color name|颜色名称/i.test(String(attr.name || ''));
+          });
+        const savedProductColorAttr = (this.productData.skuAttrs || []).concat(this.productData.attributes || [])
+          .find(function (attr) {
+            if (!attr) return false;
+            const attrId = String(attr.id || attr.attrId || attr.attribute_id || '');
+            const name = String(attr.name || '');
+            return attrId === '10096' || /цвет товара|product color|商品颜色/i.test(name);
+          });
+        const attrValueAt = function (attr, index) {
+          if (!attr) return '';
+          const values = Array.isArray(attr.values) ? attr.values : [];
+          const candidate = values[index] !== undefined ? values[index] : values[0];
+          if (candidate && typeof candidate === 'object') return candidate.value || candidate.name || '';
+          return candidate || attr.value || '';
+        };
         this.rows.forEach(function (row, rowIndex) {
           const combo = Object.assign({}, row.combo || {});
           let productColor = combo[PRODUCT_COLOR_NAME] || '';
@@ -2118,9 +2147,11 @@
               delete combo[key];
             }
           });
+          if (!productColor && savedProductColorAttr) {
+            productColor = attrValueAt(savedProductColorAttr, rowIndex);
+          }
           if (!colorName && savedColorNameAttr) {
-            const values = Array.isArray(savedColorNameAttr.values) ? savedColorNameAttr.values : [];
-            colorName = savedColorNameAttr.value || (values[rowIndex] && values[rowIndex].value) || '';
+            colorName = attrValueAt(savedColorNameAttr, rowIndex);
           }
           if (!colorName) colorName = productColor;
           if (productColor) combo[PRODUCT_COLOR_NAME] = productColor;
@@ -2194,8 +2225,8 @@
 
         // 构造提交数据
         const preparedSkus = this.rows.map(function (r) {
-          const platformSku = r.offer_id || r.offerId || r.skuCode || '';
-          const sourceSku = r.sku || r.sourceSku || '';
+          const platformSku = r.platform_sku || '';
+          const sourceSku = r.sourceSku || r.sku || '';
           return {
             offerId: platformSku,
             skuCode: platformSku,
@@ -2218,13 +2249,17 @@
           };
         });
         const preparedRows = this.rows.map(function (r) {
+          const platformSku = r.platform_sku || '';
           return {
             cover_image: r.cover_image,
             images: r.images || [],
             title: r.title,
             variant_label: r.variant_label || r.variantLabel || '',
-            sku: r.sku,
-            offer_id: r.offer_id,
+            sku: platformSku,
+            skuCode: platformSku,
+            offerId: platformSku,
+            offer_id: platformSku,
+            sourceSku: r.sourceSku || r.sku || '',
             sell_price: r.sell_price,
             price: r.price,
             old_price: r.old_price,
@@ -2300,7 +2335,7 @@
 
           // 产品级字段（取第一行作为默认值）
           // 后端 build_ozon_product_item 从 product 顶层读取这些字段：
-          //   mergeCode → offer_id, price → price, oldPrice → old_price,
+          //   mergeCode → Ozon 型号名称；SKU skuCode/offerId → Ozon 货号 offer_id，
           //   weight → weight, length → depth, width → width, height → height,
           //   barcode → barcode
           mergeCode: firstRow.offer_id || '',

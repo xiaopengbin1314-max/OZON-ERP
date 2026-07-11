@@ -9,6 +9,7 @@ from flask import Blueprint, request
 from models.product import Product
 from utils.response import success_response, error_response, paginate_response, handle_errors
 from utils.validators import extract_pagination
+from services.platform_sku_service import ensure_platform_sku_codes
 
 product_bp = Blueprint('products', __name__)
 
@@ -37,7 +38,7 @@ ALLOWED_UPDATE_FIELDS = {
     # 采集箱管理
     'group', 'store', 'storeId', 'assignee', 'note', 'claimedAt',
     # 富内容
-    'richContent',
+    'richContent', 'contentType',
     # 清洗标记（持久化，避免前端重复清洗覆盖用户编辑）
     '_cleaned',
 }
@@ -142,8 +143,8 @@ def _clean_marketplace_product(product_data):
         sku = dict(raw)
         source_price = number(sku.get('sourcePrice') or sku.get('price'))
         sku_code = clean_text(sku.get('skuCode') or sku.get('offerId') or sku.get('offer_id') or sku.get('sku'))
-        sku['skuCode'] = sku_code or f"{clean_text(product_data.get('sku'))}-{index + 1}"
-        sku['offerId'] = clean_text(sku.get('offerId') or sku.get('offer_id') or sku['skuCode'])
+        sku['skuCode'] = sku_code
+        sku['offerId'] = clean_text(sku.get('offerId') or sku.get('offer_id') or sku_code)
         sku['sourcePrice'] = source_price
         sku['price'] = number(sku.get('price'))
         sku['stock'] = max(0, number(sku.get('stock'), integer=True))
@@ -155,6 +156,8 @@ def _clean_marketplace_product(product_data):
         sku['images'] = list(dict.fromkeys(str(url).strip() for url in sku_images if str(url).strip().startswith(('http://', 'https://'))))
         clean_skus.append(sku)
     product_data['skus'] = clean_skus
+    ensure_platform_sku_codes(product_data)
+    clean_skus = product_data['skus']
     product_data['skuList'] = json.loads(json.dumps(clean_skus, ensure_ascii=False))
     product_data['variants'] = json.loads(json.dumps(clean_skus, ensure_ascii=False))
 
@@ -165,6 +168,30 @@ def _clean_marketplace_product(product_data):
     product_data['sourceId'] = clean_text(product_data.get('sourceId') or product_data.get('productId') or product_data.get('sku'))
     product_data['sourceName'] = clean_text(product_data.get('sourceName') or ('1688分销' if platform in {'1688', 'alibaba', 'alibaba1688'} else platform))
     product_data['_cleaned'] = False
+    return product_data
+
+
+def _normalize_publish_fields_for_persistence(product_data):
+    """Persist the same canonical SKU/color data later used by Ozon assembly."""
+    ensure_platform_sku_codes(product_data)
+    try:
+        from services.publish_service import (
+            normalize_collected_color_skus,
+            clean_legacy_flattened_sku_aspects,
+            promote_collected_sku_combos,
+            promote_product_color_to_skus,
+        )
+        clean_legacy_flattened_sku_aspects(product_data)
+        promote_collected_sku_combos(product_data)
+        promote_product_color_to_skus(product_data)
+        normalize_collected_color_skus(product_data)
+    except Exception as color_error:
+        print(f'[采集] 颜色字段规范化失败（保留原始数据）: {color_error}')
+
+    skus = product_data.get('skus')
+    if isinstance(skus, list) and skus:
+        product_data['skuList'] = json.loads(json.dumps(skus, ensure_ascii=False))
+        product_data['variants'] = json.loads(json.dumps(skus, ensure_ascii=False))
     return product_data
 
 
@@ -407,6 +434,8 @@ def _sync_rich_content_attribute(product_data):
 
     rich_json = _rich_content_to_json(product_data.get('richContent')) or rich_attr_value
     if not rich_json:
+        if 'richContent' in product_data or rich_attr_value:
+            product_data['richContent'] = ''
         return
 
     product_data['richContent'] = rich_json
@@ -419,6 +448,26 @@ def _sync_rich_content_attribute(product_data):
         'value': rich_json,
     })
     product_data['attributes'] = attrs
+
+
+def _classify_ozon_content(product_data):
+    """Classify mutually exclusive Ozon description modes from validated data."""
+    if str(product_data.get('platform') or '').lower() != 'ozon':
+        return ''
+    rich_json = _rich_content_to_json(product_data.get('richContent'))
+    if rich_json:
+        product_data['richContent'] = rich_json
+        product_data['contentType'] = 'rich_content'
+        product_data['description'] = ''
+        return 'rich_content'
+
+    product_data['richContent'] = ''
+    attrs = product_data.get('attributes')
+    if isinstance(attrs, list):
+        product_data['attributes'] = [attr for attr in attrs if not _is_rich_content_attr(attr)]
+    mode = 'plain_description' if str(product_data.get('description') or '').strip() else 'none'
+    product_data['contentType'] = mode
+    return mode
 
 
 def _merge_attributes_with_rich_content(existing_attrs, incoming_attrs, force_replace=False):
@@ -525,14 +574,8 @@ def collect_product():
 
     source_category = _normalize_source_category(product_data)
     _sync_rich_content_attribute(product_data)
-    has_ozon_rich_content = (
-        str(product_data.get('platform') or '').lower() == 'ozon'
-        and bool(product_data.get('richContent'))
-    )
-    if has_ozon_rich_content:
-        # Rich Content text belongs to attribute 11254. Do not duplicate the
-        # same rendered text into Ozon's plain description field.
-        product_data['description'] = ''
+    incoming_content_type = _classify_ozon_content(product_data)
+    has_ozon_rich_content = incoming_content_type == 'rich_content'
 
     # ===== 采集全过程日志 =====
     print(f'\n{"="*60}')
@@ -694,6 +737,22 @@ def collect_product():
             if is_empty and not _is_empty_value(v):
                 merged[k] = v
 
+        # Description and Rich Content are mutually exclusive Ozon modes.
+        # A fresh plain-description collection must remove stale attribute 11254.
+        if incoming_content_type == 'plain_description':
+            merged['description'] = product_data.get('description', '')
+            merged['richContent'] = ''
+            merged['contentType'] = 'plain_description'
+            merged['attributes'] = [
+                attr for attr in (merged.get('attributes') or [])
+                if not _is_rich_content_attr(attr)
+            ]
+        elif incoming_content_type == 'rich_content':
+            merged['description'] = ''
+            merged['contentType'] = 'rich_content'
+
+        _normalize_publish_fields_for_persistence(merged)
+
         # skus 是 ERP 编辑和 Ozon 发布的唯一权威 SKU 集合。采集刷新可能带来
         # 新的 raw variants；若已有已编辑 skus，兼容视图必须跟随 skus，
         # 否则扩展重开弹窗时会看到不同的 SKU 数量。
@@ -720,6 +779,10 @@ def collect_product():
                 match_attributes_by_name(merged, resolve_large_dictionaries=False)
             except Exception as attr_error:
                 print(f'[采集] 属性回填匹配失败（保留原始数据）: {attr_error}')
+
+        # Attribute matching can add the canonical 10096/10097 IDs to legacy
+        # rows, so run the idempotent persistence normalization once more.
+        _normalize_publish_fields_for_persistence(merged)
 
         merged['updatedAt'] = Product.now_iso()
 
@@ -947,6 +1010,7 @@ def collect_product():
         except Exception as attr_error:
             print(f'[采集] 属性回填匹配失败（保留原始数据）: {attr_error}')
 
+    _normalize_publish_fields_for_persistence(product_data)
     product = Product.create(product_data)
     print(f'[采集] 商品创建成功: id={product.get("id")}')
     print(f'[采集] 类目匹配结果: {product_data.get("categoryMatch", {}).get("matched", False)}, 类目={product_data.get("categoryMatch", {}).get("label", "")}')
@@ -967,11 +1031,30 @@ def get_product(product_id):
     normalized = dict(product)
     before_rich = normalized.get('richContent')
     before_attrs = normalized.get('attributes')
+    before_type = normalized.get('contentType')
+    before_description = normalized.get('description')
+    before_sku_attrs = normalized.get('skuAttrs')
+    before_skus = normalized.get('skus')
     _sync_rich_content_attribute(normalized)
-    if normalized.get('richContent') != before_rich or normalized.get('attributes') != before_attrs:
+    _classify_ozon_content(normalized)
+    _normalize_publish_fields_for_persistence(normalized)
+    if (
+        normalized.get('richContent') != before_rich
+        or normalized.get('attributes') != before_attrs
+        or normalized.get('contentType') != before_type
+        or normalized.get('description') != before_description
+        or normalized.get('skuAttrs') != before_sku_attrs
+        or normalized.get('skus') != before_skus
+    ):
         product = Product.update(product_id, {
             'richContent': normalized.get('richContent', ''),
             'attributes': normalized.get('attributes', []),
+            'contentType': normalized.get('contentType', ''),
+            'description': normalized.get('description', ''),
+            'skuAttrs': normalized.get('skuAttrs', []),
+            'skus': normalized.get('skus', []),
+            'skuList': normalized.get('skuList', []),
+            'variants': normalized.get('variants', []),
         }) or normalized
     return success_response(data=product)
 
@@ -1014,15 +1097,33 @@ def update_product(product_id):
     if not update_data:
         return error_response("没有可更新的字段")
 
-    # Keep the top-level value and attribute 11254 synchronized on every edit,
-    # not only when the product first arrives from the browser extension.
+    existing_product = Product.find_by_id(product_id)
+    if not existing_product:
+        return error_response("商品不存在", 404)
+
+    # Keep description and attribute 11254 mutually exclusive on every edit.
+    # An explicit plain-description mode is allowed to clear historical Rich Content.
     _sync_rich_content_attribute(update_data)
+    content_candidate = dict(existing_product)
+    content_candidate.update(update_data)
+    explicit_plain = update_data.get('contentType') == 'plain_description'
+    explicit_empty_rich = 'richContent' in update_data and not _rich_content_to_json(update_data.get('richContent'))
+    if explicit_plain or (explicit_empty_rich and str(update_data.get('description') or '').strip()):
+        content_candidate['richContent'] = ''
+        content_candidate['attributes'] = [
+            attr for attr in (content_candidate.get('attributes') or [])
+            if not _is_rich_content_attr(attr)
+        ]
+    _sync_rich_content_attribute(content_candidate)
+    _classify_ozon_content(content_candidate)
+    for key in ('richContent', 'attributes', 'contentType', 'description'):
+        update_data[key] = content_candidate.get(key, '' if key != 'attributes' else [])
 
     # 类目重新匹配：当 category 字段被更新且用户未同时手动指定 categoryMatch 时触发
     # 场景：商品采集时类目为空导致匹配失败，用户后续补填类目后应自动重新匹配
     # 注意：若用户同时在编辑页手动选择目标类目（提交 categoryMatch 字段），则跳过自动匹配，尊重用户选择
     if 'category' in update_data and 'categoryMatch' not in update_data:
-        existing = Product.find_by_id(product_id)
+        existing = existing_product
         if existing:
             old_category = existing.get('category', '') or ''
             new_category = update_data.get('category', '') or ''

@@ -40,7 +40,11 @@ const Sidebar = (() => {
       }
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
-        parent.classList.toggle('expanded');
+        const shouldExpand = !parent.classList.contains('expanded');
+        elements.navParents.forEach((item) => {
+          if (item !== parent) item.classList.remove('expanded');
+        });
+        parent.classList.toggle('expanded', shouldExpand);
         console.log('[Sidebar] expanded:', parent.classList.contains('expanded'));
       });
     });

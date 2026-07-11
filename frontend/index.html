@@ -19,8 +19,8 @@
           colors: {
             brand: {
               25: '#f2f7ff', 50: '#ecf3ff', 100: '#dde9ff', 200: '#c2d6ff',
-              300: '#9cb9ff', 400: '#7592ff', 500: '#465fff', 600: '#3641f5',
-              700: '#2a31d8', 800: '#252dae', 900: '#262e89', 950: '#161950',
+              300: '#93c5fd', 400: '#60a5fa', 500: '#2563eb', 600: '#1d4ed8',
+              700: '#1d4ed8', 800: '#1e40af', 900: '#1e3a8a', 950: '#172554',
             },
             gray: {
               25: '#fcfcfd', 50: '#f9fafb', 100: '#f2f4f7', 200: '#e4e7ec',
@@ -158,7 +158,7 @@
       top: auto !important;
       left: auto !important;
       bottom: auto !important;
-      width: 260px !important;
+      width: 236px !important;
       height: 100vh !important;
       background: #ffffff !important;
       border-right: 1px solid #e4e7ec !important;
@@ -167,8 +167,8 @@
 
     /* .nav-item 旧样式覆盖：让 .menu-item / .menu-dropdown-item 接管视觉 */
     #sidebar .nav-item {
-      padding: 0.5rem 0.75rem !important;
-      border-radius: 0.5rem !important;
+      padding: 0.5rem 0.625rem !important;
+      border-radius: 0.375rem !important;
       margin: 0 !important;
       width: auto !important;
       color: #344054 !important;
@@ -182,9 +182,9 @@
       color: #344054 !important;
     }
     #sidebar .nav-item.active {
-      background: #ecf3ff !important;
-      color: #465fff !important;
-      font-weight: 500 !important;
+      background: #eff6ff !important;
+      color: #1d4ed8 !important;
+      font-weight: 600 !important;
     }
     /* 父级菜单按钮：不要 space-between，不要展开时加灰底 */
     #sidebar .nav-parent > .nav-item {
@@ -218,13 +218,217 @@
     #sidebar.collapsed .logo-text { display: none !important; }
     #sidebar.collapsed .nav-item { justify-content: center !important; padding: 0.5rem 0 !important; }
 
+    #sidebar > div:first-child { padding: 15px 16px !important; }
+    #sidebar .logo-text { display: flex; align-items: baseline; gap: 6px; line-height: 1; }
+    #sidebar .logo-text small { color: #98a2b3; font-size: 10px; font-weight: 700; }
+    #sidebar nav { padding: 12px 10px !important; gap: 2px !important; }
+    #sidebar .menu-dropdown { padding-left: 28px !important; }
+    #sidebar .nav-parent.expanded > .nav-item { color: #101828 !important; }
+
+    /* ===== Sidebar v4：运营工作区 ===== */
+    #sidebar {
+      background: #fbfcfe !important;
+      border-right-color: #dfe3ea !important;
+      overflow: hidden !important;
+    }
+    #sidebar .sidebar-brand {
+      min-height: 62px;
+      flex: 0 0 62px;
+      background: #ffffff;
+      border-bottom: 1px solid #eaecf0 !important;
+    }
+    #sidebar .sidebar-brand > a { min-width: 0; }
+    #sidebar .sidebar-brand > a > span:first-child {
+      width: 30px !important;
+      height: 30px !important;
+      flex: 0 0 30px;
+      border-radius: 6px !important;
+      box-shadow: 0 1px 2px rgba(16, 24, 40, .12);
+    }
+    #sidebar nav {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      overflow-x: hidden;
+      scrollbar-width: thin;
+      scrollbar-color: #d0d5dd transparent;
+    }
+    #sidebar nav::-webkit-scrollbar { width: 4px; }
+    #sidebar nav::-webkit-scrollbar-thumb { background: #d0d5dd; border-radius: 4px; }
+    #sidebar .sidebar-section-label {
+      display: flex;
+      align-items: center;
+      min-height: 25px;
+      margin: 10px 7px 3px;
+      color: #98a2b3;
+      font-size: 10px;
+      line-height: 1;
+      font-weight: 700;
+      letter-spacing: .06em;
+    }
+    #sidebar .sidebar-section-label:first-child { margin-top: 0; }
+    #sidebar .nav-item {
+      min-height: 36px;
+      position: relative;
+      gap: 10px !important;
+      color: #475467 !important;
+    }
+    #sidebar .nav-item:hover {
+      background: #f2f4f7 !important;
+      color: #1d2939 !important;
+    }
+    #sidebar .nav-item.active {
+      background: #eff6ff !important;
+      color: #1d4ed8 !important;
+    }
+    #sidebar .nav-item.active::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 8px;
+      bottom: 8px;
+      width: 3px;
+      border-radius: 0 3px 3px 0;
+      background: #2563eb;
+    }
+    #sidebar .menu-item-icon,
+    #sidebar .nav-item > svg {
+      flex: 0 0 18px !important;
+      width: 18px !important;
+      height: 18px !important;
+      color: #667085;
+    }
+    #sidebar .nav-item.active .menu-item-icon,
+    #sidebar .nav-item.active > svg { color: #2563eb !important; }
+    #sidebar .menu-item-arrow { right: 8px; color: #98a2b3; }
+    #sidebar .menu-dropdown {
+      margin: 2px 0 4px 17px;
+      padding-left: 10px !important;
+      border-left: 1px solid #e4e7ec;
+    }
+    #sidebar .menu-dropdown .nav-item {
+      min-height: 32px;
+      padding-top: 6px !important;
+      padding-bottom: 6px !important;
+      color: #667085 !important;
+      font-size: 12px !important;
+    }
+    #sidebar .menu-dropdown .nav-item svg { width: 15px !important; height: 15px !important; }
+    #sidebar .menu-dropdown .nav-item.active { color: #1d4ed8 !important; }
+    #sidebar .nav-parent.expanded > .nav-item {
+      background: #f2f4f7 !important;
+      color: #1d2939 !important;
+      font-weight: 600 !important;
+    }
+    #sidebar .sidebar-utility {
+      flex: 0 0 auto;
+      padding: 9px 10px 10px;
+      background: #ffffff;
+      border-top: 1px solid #eaecf0;
+    }
+    #sidebar .sidebar-store-status,
+    #sidebar .sidebar-collapse-control {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      border: 0;
+      border-radius: 6px;
+      background: transparent;
+      cursor: pointer;
+    }
+    #sidebar .sidebar-store-status {
+      min-height: 49px;
+      gap: 9px;
+      padding: 7px 8px;
+      text-align: left;
+    }
+    #sidebar .sidebar-store-status:hover,
+    #sidebar .sidebar-collapse-control:hover { background: #f2f4f7; }
+    #sidebar .sidebar-store-icon {
+      width: 30px;
+      height: 30px;
+      position: relative;
+      flex: 0 0 30px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid #d0d5dd;
+      border-radius: 6px;
+      color: #475467;
+      background: #fff;
+    }
+    #sidebar .sidebar-store-icon > svg:first-child { width: 15px; height: 15px; }
+    #sidebar .sidebar-store-check {
+      position: absolute;
+      right: -3px;
+      bottom: -3px;
+      width: 13px;
+      height: 13px;
+      padding: 2px;
+      border: 2px solid #fff;
+      border-radius: 50%;
+      color: #fff;
+      background: #12b76a;
+    }
+    #sidebar .sidebar-store-copy { min-width: 0; flex: 1; }
+    #sidebar .sidebar-store-copy strong { display: block; color: #344054; font-size: 11px; line-height: 1.3; }
+    #sidebar .sidebar-store-copy small { display: flex; align-items: center; gap: 5px; margin-top: 2px; color: #667085; font-size: 9px; }
+    #sidebar .sidebar-store-copy small span { width: 5px; height: 5px; border-radius: 50%; background: #12b76a; }
+    #sidebar .sidebar-store-arrow { width: 13px; height: 13px; color: #98a2b3; }
+    #sidebar .sidebar-collapse-control {
+      min-height: 32px;
+      gap: 9px;
+      margin-top: 3px;
+      padding: 6px 9px;
+      color: #667085;
+      font-size: 10px;
+      font-weight: 600;
+    }
+    #sidebar .sidebar-collapse-control svg { width: 15px; height: 15px; }
+    #sidebar.collapsed .sidebar-brand { justify-content: center; padding-left: 0 !important; padding-right: 0 !important; }
+    #sidebar.collapsed .sidebar-section-label,
+    #sidebar.collapsed .sidebar-store-copy,
+    #sidebar.collapsed .sidebar-store-arrow,
+    #sidebar.collapsed .sidebar-collapse-control span { display: none !important; }
+    #sidebar.collapsed nav { padding-left: 9px !important; padding-right: 9px !important; }
+    #sidebar.collapsed .nav-parent { margin-bottom: 2px; }
+    #sidebar.collapsed .nav-item { width: 42px !important; min-height: 38px; margin-left: auto !important; margin-right: auto !important; }
+    #sidebar.collapsed .nav-item.active::before { left: -9px; }
+    #sidebar.collapsed .sidebar-utility { padding-left: 9px; padding-right: 9px; }
+    #sidebar.collapsed .sidebar-store-status,
+    #sidebar.collapsed .sidebar-collapse-control { width: 42px; justify-content: center; margin-left: auto; margin-right: auto; padding-left: 0; padding-right: 0; }
+    #sidebar.collapsed .sidebar-collapse-control svg { transform: rotate(180deg); }
+
     /* ===== 主内容区（flex 子项，不需要 margin-left） ===== */
     .main-content {
       margin-left: 0 !important;
       margin-top: 0 !important;
-      padding: 24px 24px 32px !important;
+      padding: 22px 24px 32px !important;
     }
     .sidebar ~ .main-content.collapsed-layout { margin-left: 0 !important; }
+
+    @media (max-width: 1023px) {
+      #sidebar {
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        bottom: 0 !important;
+        z-index: 60 !important;
+        width: 236px !important;
+        transform: translateX(-100%) !important;
+        box-shadow: none !important;
+      }
+      #sidebar.mobile-open {
+        transform: translateX(0) !important;
+        box-shadow: 12px 0 32px rgba(16, 24, 40, 0.18) !important;
+      }
+      #mobileOverlay { display: none !important; }
+      #sidebar.mobile-open + #mobileOverlay { display: block !important; }
+      .main-content {
+        width: 100% !important;
+        padding: 18px 14px 28px !important;
+      }
+    }
   </style>
 </head>
 <body class="bg-gray-50">
@@ -232,16 +436,17 @@
 <div class="flex h-screen overflow-hidden">
 
   <!-- ==================== 侧栏（TailAdmin 真实结构） ==================== -->
-  <aside class="sidebar nav-parent is-open !w-[260px] shrink-0 bg-white border-r border-gray-200 overflow-y-auto no-scrollbar" id="sidebar">
+  <aside class="sidebar is-open !w-[260px] shrink-0 bg-white border-r border-gray-200 overflow-y-auto no-scrollbar" id="sidebar">
     <!-- 侧栏顶部 Logo -->
-    <div class="flex items-center gap-2 px-5 py-5 border-b border-gray-100">
+    <div class="sidebar-brand flex items-center gap-2 px-5 py-5 border-b border-gray-100">
       <a href="#/home" class="flex items-center gap-2.5">
-        <span class="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-500 to-brand-700 flex items-center justify-center text-white font-bold text-sm shadow-theme-sm">G</span>
-        <span class="logo-text font-semibold text-gray-800 text-lg">GeekOzon</span>
+        <span class="w-8 h-8 rounded-md bg-gray-900 flex items-center justify-center text-white font-bold text-sm">G</span>
+        <span class="logo-text"><strong class="font-semibold text-gray-800 text-base">GeekOzon</strong><small>ERP</small></span>
       </a>
     </div>
 
     <nav class="px-3 py-4 flex flex-col gap-1" id="sidebarNav">
+      <div class="sidebar-section-label"><span>工作区</span></div>
       <!-- 首页 -->
       <a class="nav-item menu-item menu-item-active active" href="#/home" data-page="home" title="首页">
         <span class="menu-item-icon menu-item-icon-active">
@@ -280,6 +485,8 @@
           </a>
         </div>
       </div>
+
+      <div class="sidebar-section-label"><span>运营工具</span></div>
 
       <!-- 选品分析 -->
       <div class="nav-parent" data-expandable>
@@ -369,6 +576,8 @@
         </div>
       </div>
 
+      <div class="sidebar-section-label"><span>系统设置</span></div>
+
       <!-- 店铺管理 -->
       <div class="nav-parent" data-expandable>
         <button class="nav-item menu-item menu-item-inactive w-full" title="店铺管理">
@@ -396,6 +605,18 @@
         </div>
       </div>
     </nav>
+
+    <div class="sidebar-utility">
+      <button class="sidebar-store-status" onclick="Router.navigate('/store-manage')" title="店铺连接状态">
+        <span class="sidebar-store-icon"><i data-lucide="store"></i><i class="sidebar-store-check" data-lucide="check"></i></span>
+        <span class="sidebar-store-copy"><strong>Ozon 店铺</strong><small><span></span>连接正常</small></span>
+        <i class="sidebar-store-arrow" data-lucide="chevron-right"></i>
+      </button>
+      <button class="sidebar-collapse-control" id="collapseSidebarBtn" title="收起侧栏">
+        <i data-lucide="panel-left-close"></i>
+        <span>收起侧栏</span>
+      </button>
+    </div>
   </aside>
 
   <!-- 移动端遮罩 -->
@@ -416,8 +637,8 @@
         <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
           <i data-lucide="search" style="width:18px;height:18px;"></i>
         </span>
-        <input type="text" placeholder="搜索商品、订单、关键词..." id="globalSearch"
-          class="h-11 w-full rounded-full border border-gray-200 bg-gray-50 pl-11 pr-20 text-sm text-gray-700 placeholder:text-gray-400 focus:border-brand-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-brand-500/10 transition" />
+        <input type="text" placeholder="搜索商品、SKU 或上架记录" id="globalSearch"
+          class="h-10 w-full rounded-md border border-gray-200 bg-gray-50 pl-11 pr-20 text-sm text-gray-700 placeholder:text-gray-400 focus:border-brand-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-brand-500/10 transition" />
         <button type="button" class="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-lg bg-white px-2 py-1 text-xs font-medium text-gray-500 border border-gray-200 shadow-theme-xs">
           ⌘K
         </button>
@@ -454,17 +675,13 @@
           </span>
         </button>
 
-        <!-- 消息 -->
-        <button class="flex items-center justify-center w-10 h-10 rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition" title="消息">
-          <i data-lucide="message-square" style="width:20px;height:20px;"></i>
-        </button>
-
         <span class="hidden lg:block w-px h-6 bg-gray-200"></span>
 
-        <!-- 升级会员 -->
-        <button class="header-btn primary flex items-center gap-1.5 h-10 px-4 rounded-lg bg-brand-500 text-white text-sm font-medium shadow-theme-sm hover:bg-brand-600 transition" id="upgradeBtn">
-          <i data-lucide="crown" style="width:16px;height:16px;"></i>
-          <span class="hidden sm:inline">升级会员</span>
+        <!-- 店铺入口 -->
+        <button class="header-store-btn" onclick="Router.navigate('/store-manage')" title="店铺管理">
+          <span class="header-store-dot"></span>
+          <span class="hidden sm:inline">Ozon 店铺</span>
+          <i data-lucide="chevron-right" style="width:14px;height:14px;"></i>
         </button>
 
         <!-- 用户菜单（TailAdmin 真实结构） -->
@@ -472,7 +689,7 @@
           <div class="w-9 h-9 rounded-full bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center text-white text-sm font-semibold shadow-theme-sm">U</div>
           <div class="hidden lg:flex flex-col leading-tight">
             <span class="text-sm font-medium text-gray-800">用户</span>
-            <span class="text-xs text-gray-500">免费版</span>
+            <span class="text-xs text-gray-500">运营员</span>
           </div>
           <i data-lucide="chevron-down" class="hidden lg:block text-gray-400" style="width:16px;height:16px;"></i>
         </div>

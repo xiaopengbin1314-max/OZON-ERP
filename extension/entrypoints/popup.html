@@ -5,94 +5,82 @@
   <title>GeekOzon ERP</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      width: 360px;
-      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background: linear-gradient(to bottom, rgba(99,102,241,0.04) 0%, #ffffff 60%);
-      color: #0f172a;
-      padding: 16px;
+    :root { --ink:#17202a; --muted:#6b7785; --line:#e4e9ef; --soft:#f5f7f9; --blue:#2563eb; --blue-hover:#1d4ed8; --green:#15805d; --amber:#b76a08; --red:#c43d32; }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    html,body { width:min(360px,100vw); min-width:300px; height:auto; max-height:min(580px,100vh); overflow:hidden; }
+    body { font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif; background:#f5f7f9; color:var(--ink); letter-spacing:0; }
+    button { font:inherit; }
+    .app-head { height:60px; display:flex; align-items:center; justify-content:space-between; padding:0 14px; background:#fff; border-bottom:1px solid var(--line); }
+    .brand { display:flex; align-items:center; gap:10px; min-width:0; }
+    .logo { width:32px; height:32px; border-radius:6px; box-shadow:0 1px 3px rgba(15,23,42,.14); }
+    .brand h1 { font-size:15px; line-height:1.2; font-weight:700; }
+    .brand p { margin-top:3px; font-size:11px; color:var(--muted); }
+    .icon-btn { width:32px; height:32px; display:grid; place-items:center; border:1px solid var(--line); border-radius:6px; background:#fff; color:#526171; cursor:pointer; }
+    .icon-btn:hover { background:var(--soft); color:var(--ink); }
+    .content { max-height:520px; overflow-y:auto; overflow-x:hidden; overscroll-behavior:contain; padding:10px; display:grid; gap:8px; scrollbar-width:thin; }
+    .page-context { display:flex; align-items:center; gap:9px; padding:9px 10px; background:#fff; border:1px solid var(--line); border-radius:7px; }
+    .page-icon { width:34px; height:34px; flex:0 0 34px; display:grid; place-items:center; border-radius:6px; background:#eff6ff; color:var(--blue); }
+    .page-copy { min-width:0; flex:1; }
+    .page-copy strong { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px; }
+    .page-copy span { display:block; margin-top:3px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:11px; color:var(--muted); }
+    .page-tag { flex:0 0 auto; padding:3px 7px; border-radius:999px; background:#eef2f6; color:#627181; font-size:10px; font-weight:600; }
+    .page-tag.supported { background:#eaf7f1; color:var(--green); }
+    .primary-action { width:100%; height:38px; display:flex; align-items:center; justify-content:center; gap:8px; border:0; border-radius:6px; background:var(--blue); color:#fff; font-size:12px; font-weight:600; cursor:pointer; box-shadow:0 1px 2px rgba(37,99,235,.2); }
+    .primary-action:hover { background:var(--blue-hover); }
+    .primary-action:disabled { opacity:.65; cursor:wait; }
+    .quick-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+    .quick-btn { min-height:54px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; border:1px solid var(--line); border-radius:7px; background:#fff; color:#435160; font-size:10px; cursor:pointer; }
+    .quick-btn:hover { border-color:#b9c4d0; background:#fbfcfd; color:var(--ink); }
+    .quick-btn svg,.primary-action svg,.icon-btn svg,.page-icon svg { width:17px; height:17px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+    .panel { background:#fff; border:1px solid var(--line); border-radius:7px; overflow:hidden; }
+    .panel-head { min-height:39px; display:flex; align-items:center; justify-content:space-between; padding:0 12px; border-bottom:1px solid var(--line); }
+    .panel-head h2 { font-size:12px; font-weight:650; }
+    .panel-head span { font-size:10px; color:var(--muted); }
+    .health-grid { display:grid; grid-template-columns:1fr 1fr; }
+    .health-item { min-height:49px; padding:8px 10px; }
+    .health-item + .health-item { border-left:1px solid var(--line); }
+    .health-label { display:block; margin-bottom:5px; font-size:10px; color:var(--muted); }
+    .health-value { display:flex; align-items:center; gap:6px; font-size:11px; font-weight:600; }
+    .dot { width:7px; height:7px; border-radius:50%; background:#9ca7b2; }
+    .badge { display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:600; }
+    .badge::before { content:""; width:7px; height:7px; border-radius:50%; background:currentColor; }
+    .badge-ok { color:var(--green); } .badge-warn { color:var(--amber); } .badge-err { color:var(--red); }
+    .shop-list { max-height:112px; overflow:auto; scrollbar-width:thin; }
+    .shop-item { min-height:38px; display:flex; align-items:center; justify-content:space-between; gap:8px; padding:6px 10px; border-bottom:1px solid #edf0f3; }
+    .shop-item:last-child { border-bottom:0; }
+    .shop-name { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:11px; font-weight:600; }
+    .shop-meta { display:flex; align-items:center; gap:7px; flex:0 0 auto; color:var(--muted); font-size:10px; }
+    .loading { min-height:56px; display:flex; align-items:center; justify-content:center; color:var(--muted); font-size:11px; }
+    .api-row { padding:8px 12px; border-top:1px solid var(--line); color:#85919e; font:10px/1.4 Consolas,monospace; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .toast { position:fixed; left:12px; right:12px; bottom:12px; z-index:5; display:none; align-items:center; gap:8px; min-height:40px; padding:9px 11px; border:1px solid #cad3dd; border-radius:6px; background:#17202a; color:#fff; box-shadow:0 8px 24px rgba(15,23,42,.18); font-size:11px; }
+    .toast.show { display:flex; animation:toast-in .18s ease-out; }
+    .toast.error { background:#7f261f; border-color:#9f352b; }
+    @keyframes toast-in { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
+    @media (max-height:520px) {
+      html,body { max-height:500px; }
+      .content { max-height:440px; }
+      .panel .api-row { display:none; }
+      .shop-list { max-height:76px; }
     }
-    .header {
-      display: flex; align-items: center; gap: 10px;
-      padding-bottom: 12px; border-bottom: 1px solid #e5e7eb;
-      margin-bottom: 12px;
-    }
-    .logo { width: 32px; height: 32px; border-radius: 8px; }
-    .title-wrap h1 { font-size: 14px; font-weight: 700; }
-    .title-wrap p { font-size: 11px; color: #9ca3af; margin-top: 2px; }
-    .section { margin-bottom: 14px; }
-    .section-title { font-size: 11px; color: #6b7280; font-weight: 600; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
-    .status-row {
-      display: flex; justify-content: space-between; align-items: center;
-      padding: 6px 0; font-size: 12px;
-    }
-    .status-row .label { color: #6b7280; }
-    .status-row .value { font-weight: 600; }
-    .badge { padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 600; }
-    .badge-ok { background: rgba(0,176,80,0.1); color: #00b050; }
-    .badge-warn { background: rgba(250,173,20,0.12); color: #faad14; }
-    .badge-err { background: rgba(255,77,79,0.1); color: #ff4d4f; }
-    .btn-group { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
-    .btn {
-      padding: 9px 12px; border: 1px solid transparent; border-radius: 8px;
-      font-size: 12px; font-weight: 500; cursor: pointer; transition: all 0.15s;
-      font-family: inherit;
-    }
-    .btn-primary { background: #6366f1; color: #fff; box-shadow: 0 1px 2px 0 rgba(15,23,42,0.06); }
-    .btn-primary:hover { background: #4f46e5; box-shadow: 0 4px 8px -2px rgba(99,102,241,0.28); transform: translateY(-1px); }
-    .btn-secondary { background: #fff; color: #374151; border: 1px solid #d1d5db; }
-    .btn-secondary:hover { background: #f9fafb; }
-    .btn-block { width: 100%; }
-    .shop-list { max-height: 160px; overflow-y: auto; }
-    .shop-item {
-      display: flex; justify-content: space-between; align-items: center;
-      padding: 6px 8px; border-radius: 6px; font-size: 12px; margin-bottom: 2px;
-    }
-    .shop-item:hover { background: #f3f4f6; }
-    .shop-name { font-weight: 500; }
-    .footer { padding-top: 10px; border-top: 1px solid #e5e7eb; font-size: 10px; color: #9ca3af; text-align: center; }
-    .loading { text-align: center; padding: 20px; color: #9ca3af; font-size: 12px; }
   </style>
 </head>
 <body>
-  <div class="header">
-    <img src="../assets/icon-128.png" class="logo" alt="logo">
-    <div class="title-wrap">
-      <h1>GeekOzon ERP</h1>
-      <p>v3.0.0 · 源码化重写版</p>
+  <header class="app-head">
+    <div class="brand"><img src="../assets/icon-128.png" class="logo" alt=""><div><h1>GeekOzon ERP</h1><p>商品采集与刊登助手</p></div></div>
+    <button class="icon-btn" id="btnOptions" title="扩展设置" aria-label="扩展设置"><svg viewBox="0 0 24 24"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21h-4v-.09A1.7 1.7 0 0 0 8.6 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.1-.4H3v-4h.09A1.7 1.7 0 0 0 4.6 8.6a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1.1V3h4v.09A1.7 1.7 0 0 0 15.4 4.6a1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.4 9c.15.37.37.7.66.98.3.27.68.42 1.08.42H21v4h-.09A1.7 1.7 0 0 0 19.4 15Z"/></svg></button>
+  </header>
+  <main class="content">
+    <section class="page-context"><div class="page-icon"><svg viewBox="0 0 24 24"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5M12 22V12"/></svg></div><div class="page-copy"><strong id="currentPageTitle">正在识别当前页面</strong><span id="currentPageHost">--</span></div><span class="page-tag" id="pageStatus">检测中</span></section>
+    <button class="primary-action" id="btnCollect"><svg viewBox="0 0 24 24"><path d="M12 3v12m0 0 4-4m-4 4-4-4"/><path d="M5 19h14"/></svg><span>采集当前商品</span></button>
+    <div class="quick-grid">
+      <button class="quick-btn" id="btnErp"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 9h8M8 13h5"/></svg><span>ERP 工作台</span></button>
+      <button class="quick-btn" id="btnSeller"><svg viewBox="0 0 24 24"><path d="M4 10h16M5 10l1-5h12l1 5M6 10v9h12v-9"/><path d="M9 19v-5h6v5"/></svg><span>Ozon Seller</span></button>
+      <button class="quick-btn" id="btnRefresh"><svg viewBox="0 0 24 24"><path d="M20 6v5h-5M4 18v-5h5"/><path d="M18.5 9A7 7 0 0 0 6 6.5L4 9m2 6a7 7 0 0 0 12.5 2.5L20 15"/></svg><span>刷新状态</span></button>
     </div>
-  </div>
-
-  <div class="section">
-    <div class="section-title">连接状态</div>
-    <div class="status-row"><span class="label">后端</span><span class="value" id="backendStatus">检测中...</span></div>
-    <div class="status-row"><span class="label">seller.ozon.ru</span><span class="value" id="sellerTabStatus">检测中...</span></div>
-    <div class="status-row"><span class="label">API 地址</span><span class="value" id="apiBaseUrl" style="font-size:11px;color:#6b7280">--</span></div>
-  </div>
-
-  <div class="section">
-    <div class="section-title">店铺列表</div>
-    <div class="shop-list" id="shopList"><div class="loading">加载中...</div></div>
-  </div>
-
-  <div class="section">
-    <div class="section-title">快捷操作</div>
-    <div class="btn-group">
-      <button class="btn btn-primary" id="btnCollect">采集当前页</button>
-      <button class="btn btn-secondary" id="btnErp">打开 ERP</button>
-      <button class="btn btn-secondary" id="btnSeller">打开 seller</button>
-      <button class="btn btn-secondary" id="btnOptions">设置</button>
-    </div>
-  </div>
-
-  <div class="footer">GeekOzon ERP · 源码化重写版 v3.0.0</div>
-
-  <script src="../core/namespace.js"></script>
-  <script src="../core/config.js"></script>
-  <script src="../core/api-client.js"></script>
-  <script src="../core/chrome-storage.js"></script>
-  <script src="../core/cross-tab.js"></script>
-  <script src="popup.js"></script>
+    <section class="panel"><div class="panel-head"><h2>运行状态</h2><span>实时检测</span></div><div class="health-grid"><div class="health-item"><span class="health-label">ERP 后端</span><div class="health-value" id="backendStatus"><span class="dot"></span>检测中</div></div><div class="health-item"><span class="health-label">Seller 桥接</span><div class="health-value" id="sellerTabStatus"><span class="dot"></span>检测中</div></div></div><div class="api-row" id="apiBaseUrl">--</div></section>
+    <section class="panel"><div class="panel-head"><h2>店铺</h2><span id="shopCount">加载中</span></div><div class="shop-list" id="shopList"><div class="loading">正在同步店铺</div></div></section>
+  </main>
+  <div class="toast" id="popupToast"></div>
+  <script src="../core/namespace.js"></script><script src="../core/config.js"></script><script src="../core/api-client.js"></script><script src="../core/chrome-storage.js"></script><script src="../core/cross-tab.js"></script><script src="popup.js"></script>
 </body>
 </html>

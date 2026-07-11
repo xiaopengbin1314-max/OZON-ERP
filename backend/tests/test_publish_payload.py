@@ -71,6 +71,32 @@ class PublishPayloadTests(unittest.TestCase):
         self.assertEqual('черный', product['skus'][0]['combo']['颜色名称（Название цвета）'])
         self.assertEqual(product['title'], product['skus'][0]['title'])
 
+    def test_variant_description_uses_actual_color_segment(self):
+        product = {
+            'skuAttrs': [{
+                'name': '商品颜色（Цвет товара）', 'attrId': 10096,
+                'values': ['16 спиц 5х4, прям ручка, белый'],
+            }, {
+                'name': '颜色名称（Название цвета）', 'attrId': 10097,
+                'values': ['16 спиц 5х4, прям ручка, белый'],
+            }],
+            'skus': [{
+                'combo': {
+                    '商品颜色（Цвет товара）': '16 спиц 5х4, прям ручка, белый',
+                    '颜色名称（Название цвета）': '16 спиц 5х4, прям ручка, белый',
+                },
+            }],
+        }
+
+        normalize_collected_color_skus(product)
+
+        self.assertEqual(['белый'], product['skuAttrs'][0]['values'])
+        self.assertEqual('белый', product['skus'][0]['combo']['商品颜色（Цвет товара）'])
+        self.assertEqual(
+            '16 спиц 5х4, прям ручка, белый',
+            product['skus'][0]['combo']['颜色名称（Название цвета）'],
+        )
+
     def test_dictionary_match_uses_ozon_id_field(self):
         matched = _match_dict_value('Женский', [{'id': 22881, 'value': 'Женский'}])
         self.assertEqual(22881, matched['value_id'])
@@ -224,6 +250,38 @@ class PublishPayloadTests(unittest.TestCase):
         self.assertEqual('PLATFORM-SKU-1', item['offer_id'])
         self.assertEqual([{'dictionary_value_id': 61574}], attrs[10096])
         self.assertEqual([{'value': 'Черный матовый'}], attrs[10097])
+
+    def test_dom_article_maps_only_to_model_name_and_platform_sku_maps_to_offer_id(self):
+        product = _product([
+            {'skuCode': 'PLATFORM-SKU-1', 'offerId': 'PLATFORM-SKU-1', 'price': 100},
+            {'skuCode': 'PLATFORM-SKU-2', 'offerId': 'PLATFORM-SKU-2', 'price': 110},
+        ])
+        product['mergeCode'] = 'DOM-GENERATED-ARTICLE'
+        product['attributes'] = [{
+            'id': 9048,
+            'name': 'Название модели (для объединения в одну карточку)',
+            'value': 'OLD-MODEL',
+            'values': [{'value': 'OLD-MODEL'}],
+        }, {
+            'id': 9048,
+            'name': '型号名称（针对合并为一张商品卡片）',
+            'value': 'DUPLICATE-OLD-MODEL',
+        }]
+
+        merged = build_ozon_product_items(product, publish_mode='merge')[0]
+        merged_model = next(attr for attr in merged['attributes'] if attr['id'] == 9048)
+        self.assertEqual([{'value': 'DOM-GENERATED-ARTICLE'}], merged_model['values'])
+        self.assertEqual(
+            ['PLATFORM-SKU-1', 'PLATFORM-SKU-2'],
+            [source['offer_id'] for source in merged['sources']],
+        )
+        self.assertNotIn('DOM-GENERATED-ARTICLE', [source['offer_id'] for source in merged['sources']])
+
+        split = build_ozon_product_items(product, publish_mode='split')
+        self.assertEqual(['PLATFORM-SKU-1', 'PLATFORM-SKU-2'], [item['offer_id'] for item in split])
+        for item in split:
+            split_model = next(attr for attr in item['attributes'] if attr['id'] == 9048)
+            self.assertEqual([{'value': 'DOM-GENERATED-ARTICLE'}], split_model['values'])
 
 
 if __name__ == '__main__':

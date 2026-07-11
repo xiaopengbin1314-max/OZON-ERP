@@ -1,6 +1,6 @@
 /**
  * GeekOzon 扩展 - 设计系统 Token（v2 现代 SaaS）
- * 主色：靛蓝 indigo #6366f1（参考 Linear / Tailwind / Vercel）
+ * 主色：清晰蓝 #2563eb，搭配翠绿状态色与中性灰阶
  * 视觉语言：克制配色、细腻灰阶、多层阴影、SVG 线性图标
  * 兼容性：保留 v1 全部属性名，业务弹窗无需改动即可继承新配色
  */
@@ -20,15 +20,15 @@
   const Tokens = {
     // ===== 颜色 =====
     color: {
-      // 主色（靛蓝 indigo-500）
-      primary: '#6366f1',
-      primaryHover: '#4f46e5',     // indigo-600
-      primaryActive: '#4338ca',    // indigo-700
-      primarySubtle: '#eef2ff',    // indigo-50，用于浅底强调
-      primaryBorder: '#c7d2fe',   // indigo-200
+      // 主色（blue-600）
+      primary: '#2563eb',
+      primaryHover: '#1d4ed8',
+      primaryActive: '#1e40af',
+      primarySubtle: '#eff6ff',
+      primaryBorder: '#bfdbfe',
 
       // 强调红（保留属性名以兼容业务；语义已收敛为"黑标价红/危险"）
-      accentRed: 'rgba(99,102,241,0.16)',         // 原"红光晕"改为靛蓝 focus hint
+      accentRed: 'rgba(37,99,235,0.16)',
       accentRedStrong: 'rgba(238,19,27,0.28)',    // 黑标价/危险光晕，更克制
       accentRedSolid: '#ee131b',                   // Ozon 黑标价红（业务语义色，保留）
 
@@ -48,7 +48,7 @@
       // 边框
       border: SLATE[200],
       borderStrong: SLATE[300],
-      borderFocus: '#6366f1',
+      borderFocus: '#2563eb',
 
       // 语义色（现代 SaaS 色板，含浅底背景）
       success: '#10b981',        successBg: '#ecfdf5',   // emerald
@@ -58,9 +58,9 @@
       dangerStrong: '#dc2626',
 
       // 渐变（保留属性名兼容业务；色调由黄/绿改为靛蓝/翠）
-      gradientYellowTop: 'linear-gradient(to bottom, rgba(99,102,241,0.05) 0%, #ffffff 70%)',
+      gradientYellowTop: 'linear-gradient(to bottom, rgba(37,99,235,0.04) 0%, #ffffff 70%)',
       gradientGreenTop: 'linear-gradient(to bottom, rgba(16,185,129,0.06) 0%, #ffffff 70%)',
-      gradientStoreBar: 'linear-gradient(to right, rgba(99,102,241,0.05), #ffffff)',
+      gradientStoreBar: 'linear-gradient(to right, rgba(37,99,235,0.04), #ffffff)',
     },
 
     // ===== 间距（4 倍数体系） =====
@@ -94,11 +94,11 @@
       modal: '0 20px 25px -5px rgba(15,23,42,0.12), 0 8px 10px -6px rgba(15,23,42,0.08)',
       drawer: '-12px 0 28px 0 rgba(15,23,42,0.12)',
       // 按钮阴影：去掉红色光晕，改为主色 focus ring（业务弹窗引用同名属性自动获得新视觉）
-      buttonPrimary: '0 1px 2px 0 rgba(15,23,42,0.06), 0 0 0 1px rgba(99,102,241,0.18)',
-      buttonPrimaryHover: '0 4px 8px -2px rgba(99,102,241,0.28), 0 0 0 1px rgba(99,102,241,0.22)',
-      toggle: '0 0 0 3px rgba(99,102,241,0.4)',
-      toggleHover: '0 0 0 4px rgba(99,102,241,0.45)',
-      focus: '0 0 0 3px rgba(99,102,241,0.4)',
+      buttonPrimary: '0 1px 2px 0 rgba(15,23,42,0.06), 0 0 0 1px rgba(37,99,235,0.18)',
+      buttonPrimaryHover: '0 4px 8px -2px rgba(37,99,235,0.24), 0 0 0 1px rgba(37,99,235,0.2)',
+      toggle: '0 0 0 3px rgba(37,99,235,0.32)',
+      toggleHover: '0 0 0 4px rgba(37,99,235,0.38)',
+      focus: '0 0 0 3px rgba(37,99,235,0.28)',
     },
 
     // ===== 字体 =====

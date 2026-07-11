@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+
+# 数据文件（运行时生成）
+backend/data/*.json
+backend/data/cache/
+backend/data/cache_tmp/
+backend/data/backup_*/
+backend/data/*.db
+backend/uploads/
+
+# 密钥与本地环境
+.env
+.env.*
+!.env.example
+backend/.env
+*.pem
+*.key
+*.log
+
+# IDE
+.vscode/
+.idea/
+.codex/
+.agents/
+.trae/
+.figma/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node (如后续引入)
+node_modules/
+dist/

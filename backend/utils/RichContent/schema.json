@@ -1,0 +1,3983 @@
+{
+  "anyOf": [
+    {
+      "$ref": "#/definitions/RichContentV02"
+    },
+    {
+      "type": "object",
+      "properties": {
+        "content": {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "allOf": [
+                  {
+                    "$ref": "#/definitions/Widget_1"
+                  },
+                  {
+                    "$ref": "#/definitions/List"
+                  }
+                ]
+              },
+              {
+                "allOf": [
+                  {
+                    "$ref": "#/definitions/Widget_1"
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "widgetName": {
+                        "type": "string",
+                        "enum": [
+                          "raTable"
+                        ]
+                      },
+                      "title": {
+                        "anyOf": [
+                          {
+                            "allOf": [
+                              {
+                                "$ref": "#/definitions/TextFormat"
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "content": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
+                                  }
+                                },
+                                "required": [
+                                  "content"
+                                ]
+                              }
+                            ]
+                          },
+                          {
+                            "allOf": [
+                              {
+                                "$ref": "#/definitions/TextFormat"
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "items": {
+                                    "type": "array",
+                                    "items": {
+                                      "anyOf": [
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "type": {
+                                              "type": "string",
+                                              "enum": [
+                                                "text"
+                                              ]
+                                            },
+                                            "content": {
+                                              "type": "string"
+                                            }
+                                          },
+                                          "required": [
+                                            "content",
+                                            "type"
+                                          ]
+                                        },
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "type": {
+                                              "type": "string",
+                                              "enum": [
+                                                "link"
+                                              ]
+                                            },
+                                            "content": {
+                                              "type": "string"
+                                            },
+                                            "href": {
+                                              "type": "string"
+                                            }
+                                          },
+                                          "required": [
+                                            "content",
+                                            "href",
+                                            "type"
+                                          ]
+                                        },
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "type": {
+                                              "type": "string",
+                                              "enum": [
+                                                "br"
+                                              ]
+                                            }
+                                          },
+                                          "required": [
+                                            "type"
+                                          ]
+                                        }
+                                      ]
+                                    }
+                                  }
+                                },
+                                "required": [
+                                  "items"
+                                ]
+                              }
+                            ]
+                          },
+                          {
+                            "allOf": [
+                              {
+                                "$ref": "#/definitions/TextFormat"
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "content": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
+                                  }
+                                },
+                                "required": [
+                                  "content"
+                                ]
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "items": {
+                                    "type": "array",
+                                    "items": {
+                                      "anyOf": [
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "type": {
+                                              "type": "string",
+                                              "enum": [
+                                                "text"
+                                              ]
+                                            },
+                                            "content": {
+                                              "type": "string"
+                                            }
+                                          },
+                                          "required": [
+                                            "content",
+                                            "type"
+                                          ]
+                                        },
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "type": {
+                                              "type": "string",
+                                              "enum": [
+                                                "link"
+                                              ]
+                                            },
+                                            "content": {
+                                              "type": "string"
+                                            },
+                                            "href": {
+                                              "type": "string"
+                                            }
+                                          },
+                                          "required": [
+                                            "content",
+                                            "href",
+                                            "type"
+                                          ]
+                                        },
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "type": {
+                                              "type": "string",
+                                              "enum": [
+                                                "br"
+                                              ]
+                                            }
+                                          },
+                                          "required": [
+                                            "type"
+                                          ]
+                                        }
+                                      ]
+                                    }
+                                  }
+                                },
+                                "required": [
+                                  "items"
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      "table": {
+                        "type": "object",
+                        "properties": {
+                          "head": {
+                            "type": "array",
+                            "items": {
+                              "$ref": "#/definitions/HeadCell"
+                            }
+                          },
+                          "hideHead": {
+                            "type": "boolean"
+                          },
+                          "hoverRow": {
+                            "type": "boolean"
+                          },
+                          "hoverColumn": {
+                            "type": "boolean"
+                          },
+                          "body": {
+                            "type": "array",
+                            "items": {
+                              "type": "array",
+                              "items": {
+                                "anyOf": [
+                                  {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "items": {
+                                        "type": "array",
+                                        "items": {
+                                          "anyOf": [
+                                            {
+                                              "type": "object",
+                                              "properties": {
+                                                "type": {
+                                                  "type": "string",
+                                                  "enum": [
+                                                    "text"
+                                                  ]
+                                                },
+                                                "content": {
+                                                  "type": "string"
+                                                }
+                                              },
+                                              "required": [
+                                                "content",
+                                                "type"
+                                              ]
+                                            },
+                                            {
+                                              "type": "object",
+                                              "properties": {
+                                                "type": {
+                                                  "type": "string",
+                                                  "enum": [
+                                                    "link"
+                                                  ]
+                                                },
+                                                "content": {
+                                                  "type": "string"
+                                                },
+                                                "href": {
+                                                  "type": "string"
+                                                }
+                                              },
+                                              "required": [
+                                                "content",
+                                                "href",
+                                                "type"
+                                              ]
+                                            },
+                                            {
+                                              "type": "object",
+                                              "properties": {
+                                                "type": {
+                                                  "type": "string",
+                                                  "enum": [
+                                                    "br"
+                                                  ]
+                                                }
+                                              },
+                                              "required": [
+                                                "type"
+                                              ]
+                                            }
+                                          ]
+                                        }
+                                      }
+                                    },
+                                    "required": [
+                                      "items"
+                                    ]
+                                  }
+                                ]
+                              }
+                            }
+                          }
+                        },
+                        "required": [
+                          "body",
+                          "head"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "table",
+                      "widgetName"
+                    ]
+                  }
+                ]
+              },
+              {
+                "$ref": "#/definitions/WidgetVideoYouTube_1"
+              },
+              {
+                "$ref": "#/definitions/WidgetVideoNative_1"
+              },
+              {
+                "allOf": [
+                  {
+                    "$ref": "#/definitions/Widget_1"
+                  },
+                  {
+                    "$ref": "#/definitions/TextBlock_1"
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "widgetName": {
+                        "type": "string",
+                        "enum": [
+                          "raTextBlock"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "widgetName"
+                    ]
+                  }
+                ]
+              },
+              {
+                "$ref": "#/definitions/WidgetShowCaseRoll"
+              },
+              {
+                "$ref": "#/definitions/WidgetShowCaseBillboard_1"
+              },
+              {
+                "$ref": "#/definitions/WidgetShowCaseChess_1"
+              },
+              {
+                "$ref": "#/definitions/WidgetShowCaseTileM_1"
+              },
+              {
+                "$ref": "#/definitions/WidgetShowCaseTileL_1"
+              },
+              {
+                "$ref": "#/definitions/WidgetShowCaseTileXL_1"
+              },
+              {
+                "$ref": "#/definitions/WidgetShowCaseTileSecondary_1"
+              }
+            ]
+          }
+        },
+        "version": {
+          "$ref": "#/definitions/ContractVersion.V03"
+        }
+      },
+      "required": [
+        "content",
+        "version"
+      ]
+    }
+  ],
+  "definitions": {
+    "RichContentV02": {
+      "type": "object",
+      "properties": {
+        "content": {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "$ref": "#/definitions/WidgetVideoYouTube"
+              },
+              {
+                "$ref": "#/definitions/WidgetVideoNative"
+              },
+              {
+                "$ref": "#/definitions/WidgetShowCaseBillboard"
+              },
+              {
+                "$ref": "#/definitions/WidgetShowCaseChess"
+              },
+              {
+                "$ref": "#/definitions/WidgetShowCaseTileM"
+              },
+              {
+                "$ref": "#/definitions/WidgetShowCaseTileL"
+              },
+              {
+                "$ref": "#/definitions/WidgetShowCaseTileXL"
+              },
+              {
+                "$ref": "#/definitions/WidgetShowCaseTileSecondary"
+              },
+              {
+                "allOf": [
+                  {
+                    "$ref": "#/definitions/Widget"
+                  },
+                  {
+                    "$ref": "#/definitions/TextBlock"
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "widgetName": {
+                        "type": "string",
+                        "enum": [
+                          "raTextBlock"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "widgetName"
+                    ]
+                  }
+                ]
+              },
+              {
+                "allOf": [
+                  {
+                    "$ref": "#/definitions/Widget"
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "widgetName": {
+                        "type": "string",
+                        "enum": [
+                          "raTable"
+                        ]
+                      },
+                      "title": {
+                        "type": "string"
+                      },
+                      "table": {
+                        "$ref": "#/definitions/Table"
+                      }
+                    },
+                    "required": [
+                      "table",
+                      "title",
+                      "widgetName"
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        "version": {
+          "type": "number",
+          "enum": [
+            0.2
+          ]
+        }
+      },
+      "required": [
+        "content",
+        "version"
+      ]
+    },
+    "WidgetVideoYouTube": {
+      "type": "object",
+      "properties": {
+        "widgetName": {
+          "type": "string",
+          "enum": [
+            "raVideo"
+          ]
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "youtube"
+          ]
+        },
+        "id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "widgetName"
+      ]
+    },
+    "WidgetVideoNative": {
+      "type": "object",
+      "properties": {
+        "widgetName": {
+          "type": "string",
+          "enum": [
+            "raVideo"
+          ]
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "embed"
+          ]
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/VideoNativeSource"
+          }
+        },
+        "width": {
+          "type": "number"
+        },
+        "height": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "height",
+        "sources",
+        "type",
+        "widgetName",
+        "width"
+      ]
+    },
+    "VideoNativeSource": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string"
+        },
+        "src": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "src",
+        "type"
+      ]
+    },
+    "WidgetShowCaseBillboard": {
+      "type": "object",
+      "properties": {
+        "widgetName": {
+          "type": "string",
+          "enum": [
+            "raShowcase"
+          ]
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "billboard"
+          ]
+        },
+        "blocks": {
+          "type": "array",
+          "items": [
+            {
+              "$ref": "#/definitions/ShowCaseBlock"
+            },
+            {
+              "$ref": "#/definitions/ShowCaseBlock"
+            },
+            {
+              "$ref": "#/definitions/ShowCaseBlock"
+            }
+          ],
+          "minItems": 1,
+          "maxItems": 3
+        }
+      },
+      "required": [
+        "blocks",
+        "type",
+        "widgetName"
+      ]
+    },
+    "ShowCaseBlock": {
+      "type": "object",
+      "properties": {
+        "img": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/ImgAny"
+            },
+            {
+              "$ref": "#/definitions/ImgSize"
+            },
+            {
+              "$ref": "#/definitions/ImgSizeAllMobile"
+            },
+            {
+              "$ref": "#/definitions/ImgSizeAnyMobile"
+            }
+          ]
+        },
+        "title": {
+          "type": "string"
+        },
+        "text": {
+          "$ref": "#/definitions/Text"
+        }
+      },
+      "required": [
+        "img"
+      ]
+    },
+    "ImgAny": {
+      "type": "object",
+      "properties": {
+        "src": {
+          "type": "string"
+        },
+        "srcMobile": {
+          "type": "string"
+        },
+        "width": {
+          "type": "null"
+        },
+        "height": {
+          "type": "null"
+        },
+        "widthMobile": {
+          "type": "null"
+        },
+        "heightMobile": {
+          "type": "null"
+        }
+      },
+      "required": [
+        "src",
+        "srcMobile"
+      ]
+    },
+    "ImgSize": {
+      "type": "object",
+      "properties": {
+        "src": {
+          "type": "string"
+        },
+        "srcMobile": {
+          "type": "string"
+        },
+        "widthMobile": {
+          "type": "number"
+        },
+        "heightMobile": {
+          "type": "number"
+        },
+        "width": {
+          "type": "number"
+        },
+        "height": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "height",
+        "heightMobile",
+        "src",
+        "srcMobile",
+        "width",
+        "widthMobile"
+      ]
+    },
+    "ImgSizeAllMobile": {
+      "type": "object",
+      "properties": {
+        "src": {
+          "type": "string"
+        },
+        "srcMobile": {
+          "type": "string"
+        },
+        "width": {
+          "type": "null"
+        },
+        "height": {
+          "type": "null"
+        },
+        "widthMobile": {
+          "type": "number"
+        },
+        "heightMobile": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "heightMobile",
+        "src",
+        "srcMobile",
+        "widthMobile"
+      ]
+    },
+    "ImgSizeAnyMobile": {
+      "type": "object",
+      "properties": {
+        "src": {
+          "type": "string"
+        },
+        "srcMobile": {
+          "type": "string"
+        },
+        "widthMobile": {
+          "type": "null"
+        },
+        "heightMobile": {
+          "type": "null"
+        },
+        "width": {
+          "type": "number"
+        },
+        "height": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "height",
+        "src",
+        "srcMobile",
+        "width"
+      ]
+    },
+    "Text": {
+      "type": "object",
+      "properties": {
+        "content": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "theme": {
+          "enum": [
+            "default",
+            "disclaimer",
+            "tertiary",
+            "tertiaryMobile",
+            "title",
+            "titleMobile",
+            "titleSmall",
+            "titleTertiary",
+            "titleTertiaryMobile"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "content"
+      ]
+    },
+    "WidgetShowCaseChess": {
+      "type": "object",
+      "properties": {
+        "widgetName": {
+          "type": "string",
+          "enum": [
+            "raShowcase"
+          ]
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "chess"
+          ]
+        },
+        "blocks": {
+          "type": "array",
+          "items": [
+            {
+              "$ref": "#/definitions/ShowCaseBlockChess"
+            },
+            {
+              "$ref": "#/definitions/ShowCaseBlockChess"
+            },
+            {
+              "$ref": "#/definitions/ShowCaseBlockChess"
+            },
+            {
+              "$ref": "#/definitions/ShowCaseBlockChess"
+            },
+            {
+              "$ref": "#/definitions/ShowCaseBlockChess"
+            },
+            {
+              "$ref": "#/definitions/ShowCaseBlockChess"
+            }
+          ],
+          "minItems": 2,
+          "maxItems": 6
+        }
+      },
+      "required": [
+        "blocks",
+        "type",
+        "widgetName"
+      ]
+    },
+    "ShowCaseBlockChess": {
+      "type": "object",
+      "properties": {
+        "reverse": {
+          "type": "boolean"
+        },
+        "img": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/ImgAny"
+            },
+            {
+              "$ref": "#/definitions/ImgSize"
+            },
+            {
+              "$ref": "#/definitions/ImgSizeAllMobile"
+            },
+            {
+              "$ref": "#/definitions/ImgSizeAnyMobile"
+            }
+          ]
+        },
+        "title": {
+          "type": "string"
+        },
+        "text": {
+          "$ref": "#/definitions/Text"
+        }
+      },
+      "required": [
+        "img"
+      ]
+    },
+    "WidgetShowCaseTileM": {
+      "type": "object",
+      "properties": {
+        "widgetName": {
+          "type": "string",
+          "enum": [
+            "raShowcase"
+          ]
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "tileM"
+          ]
+        },
+        "blocks": {
+          "type": "array",
+          "items": [
+            {
+              "$ref": "#/definitions/ShowCaseBlock"
+            },
+            {
+              "$ref": "#/definitions/ShowCaseBlock"
+            },
+            {
+              "$ref": "#/definitions/ShowCaseBlock"
+            },
+            {
+              "$ref": "#/definitions/ShowCaseBlock"
+            },
+            {
+              "$ref": "#/definitions/ShowCaseBlock"
+            },
+            {
+              "$ref": "#/definitions/ShowCaseBlock"
+            },
+            {
+              "$ref": "#/definitions/ShowCaseBlock"
+            },
+            {
+              "$ref": "#/definitions/ShowCaseBlock"
+            }
+          ],
+          "minItems": 2,
+          "maxItems": 8
+        }
+      },
+      "required": [
+        "blocks",
+        "type",
+        "widgetName"
+      ]
+    },
+    "WidgetShowCaseTileL": {
+      "type": "object",
+      "properties": {
+        "widgetName": {
+          "type": "string",
+          "enum": [
+            "raShowcase"
+          ]
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "tileL"
+          ]
+        },
+        "blocks": {
+          "type": "array",
+          "items": [
+            {
+              "$ref": "#/definitions/ShowCaseBlock"
+            },
+            {
+              "$ref": "#/definitions/ShowCaseBlock"
+            },
+            {
+              "$ref": "#/definitions/ShowCaseBlock"
+            },
+            {
+              "$ref": "#/definitions/ShowCaseBlock"
+            },
+            {
+              "$ref": "#/definitions/ShowCaseBlock"
+            },
+            {
+              "$ref": "#/definitions/ShowCaseBlock"
+            }
+          ],
+          "minItems": 2,
+          "maxItems": 6
+        }
+      },
+      "required": [
+        "blocks",
+        "type",
+        "widgetName"
+      ]
+    },
+    "WidgetShowCaseTileXL": {
+      "type": "object",
+      "properties": {
+        "widgetName": {
+          "type": "string",
+          "enum": [
+            "raShowcase"
+          ]
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "tileXL"
+          ]
+        },
+        "blocks": {
+          "type": "array",
+          "items": [
+            {
+              "$ref": "#/definitions/ShowCaseBlock"
+            },
+            {
+              "$ref": "#/definitions/ShowCaseBlock"
+            },
+            {
+              "$ref": "#/definitions/ShowCaseBlock"
+            },
+            {
+              "$ref": "#/definitions/ShowCaseBlock"
+            }
+          ],
+          "minItems": 2,
+          "maxItems": 4
+        }
+      },
+      "required": [
+        "blocks",
+        "type",
+        "widgetName"
+      ]
+    },
+    "WidgetShowCaseTileSecondary": {
+      "type": "object",
+      "properties": {
+        "widgetName": {
+          "type": "string",
+          "enum": [
+            "raShowcase"
+          ]
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "tileSecondary"
+          ]
+        },
+        "blocks": {
+          "type": "array",
+          "items": [
+            {
+              "$ref": "#/definitions/ShowCaseBlockSecondary"
+            },
+            {
+              "$ref": "#/definitions/ShowCaseBlockSecondary"
+            },
+            {
+              "$ref": "#/definitions/ShowCaseBlockSecondary"
+            },
+            {
+              "$ref": "#/definitions/ShowCaseBlockSecondary"
+            },
+            {
+              "$ref": "#/definitions/ShowCaseBlockSecondary"
+            },
+            {
+              "$ref": "#/definitions/ShowCaseBlockSecondary"
+            },
+            {
+              "$ref": "#/definitions/ShowCaseBlockSecondary"
+            },
+            {
+              "$ref": "#/definitions/ShowCaseBlockSecondary"
+            }
+          ],
+          "minItems": 2,
+          "maxItems": 8
+        }
+      },
+      "required": [
+        "blocks",
+        "type",
+        "widgetName"
+      ]
+    },
+    "ShowCaseBlockSecondary": {
+      "type": "object",
+      "properties": {
+        "img": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/ImgAny"
+            },
+            {
+              "$ref": "#/definitions/ImgSize"
+            },
+            {
+              "$ref": "#/definitions/ImgSizeAllMobile"
+            },
+            {
+              "$ref": "#/definitions/ImgSizeAnyMobile"
+            }
+          ]
+        },
+        "title": {
+          "type": "string"
+        },
+        "text": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "img",
+        "text"
+      ]
+    },
+    "Widget": {
+      "type": "object",
+      "properties": {
+        "widgetName": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "widgetName"
+      ]
+    },
+    "TextBlock": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "$ref": "#/definitions/Text"
+        },
+        "text": {
+          "$ref": "#/definitions/Text"
+        },
+        "gapSize": {
+          "enum": [
+            "m",
+            "s"
+          ],
+          "type": "string"
+        }
+      }
+    },
+    "Table": {
+      "type": "object",
+      "properties": {
+        "header": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "body": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "required": [
+        "body"
+      ]
+    },
+    "Widget_1": {
+      "type": "object",
+      "properties": {
+        "widgetName": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "widgetName"
+      ]
+    },
+    "List": {
+      "type": "object",
+      "properties": {
+        "widgetName": {
+          "type": "string",
+          "enum": [
+            "list"
+          ]
+        },
+        "theme": {
+          "$ref": "#/definitions/ListThemes"
+        },
+        "blocks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ListBlock"
+          }
+        }
+      },
+      "required": [
+        "blocks",
+        "theme",
+        "widgetName"
+      ]
+    },
+    "ListThemes": {
+      "enum": [
+        "bullet",
+        "image",
+        "number"
+      ],
+      "type": "string"
+    },
+    "ListBlock": {
+      "type": "object",
+      "properties": {
+        "img": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/ImgAny_1"
+            },
+            {
+              "$ref": "#/definitions/ImgSizeAll"
+            },
+            {
+              "$ref": "#/definitions/ImgSizeMobile"
+            },
+            {
+              "$ref": "#/definitions/ImgSizeDesktop"
+            }
+          ]
+        },
+        "title": {
+          "anyOf": [
+            {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/TextFormat"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "content": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "content"
+                  ]
+                }
+              ]
+            },
+            {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/TextFormat"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "text"
+                                ]
+                              },
+                              "content": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "content",
+                              "type"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "link"
+                                ]
+                              },
+                              "content": {
+                                "type": "string"
+                              },
+                              "href": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "content",
+                              "href",
+                              "type"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "br"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "type"
+                            ]
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "items"
+                  ]
+                }
+              ]
+            },
+            {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/TextFormat"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "content": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "content"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "text"
+                                ]
+                              },
+                              "content": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "content",
+                              "type"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "link"
+                                ]
+                              },
+                              "content": {
+                                "type": "string"
+                              },
+                              "href": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "content",
+                              "href",
+                              "type"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "br"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "type"
+                            ]
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "items"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "text": {
+          "anyOf": [
+            {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/TextFormat"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "content": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "content"
+                  ]
+                }
+              ]
+            },
+            {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/TextFormat"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "text"
+                                ]
+                              },
+                              "content": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "content",
+                              "type"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "link"
+                                ]
+                              },
+                              "content": {
+                                "type": "string"
+                              },
+                              "href": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "content",
+                              "href",
+                              "type"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "br"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "type"
+                            ]
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "items"
+                  ]
+                }
+              ]
+            },
+            {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/TextFormat"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "content": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "content"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "text"
+                                ]
+                              },
+                              "content": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "content",
+                              "type"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "link"
+                                ]
+                              },
+                              "content": {
+                                "type": "string"
+                              },
+                              "href": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "content",
+                              "href",
+                              "type"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "br"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "type"
+                            ]
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "items"
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    "ImgAny_1": {
+      "type": "object",
+      "properties": {
+        "src": {
+          "type": "string"
+        },
+        "srcMobile": {
+          "type": "string"
+        },
+        "alt": {
+          "type": "string"
+        },
+        "position": {
+          "enum": [
+            "fill",
+            "to_the_edge",
+            "width_full",
+            "width_half",
+            "width_one_fourth",
+            "width_one_third"
+          ],
+          "type": "string"
+        },
+        "positionMobile": {
+          "enum": [
+            "fill",
+            "to_the_edge",
+            "width_full",
+            "width_half",
+            "width_one_fourth",
+            "width_one_third"
+          ],
+          "type": "string"
+        },
+        "isParandja": {
+          "type": "boolean"
+        },
+        "isParandjaMobile": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "src",
+        "srcMobile"
+      ]
+    },
+    "ImgSizeAll": {
+      "type": "object",
+      "properties": {
+        "widthMobile": {
+          "type": "number"
+        },
+        "heightMobile": {
+          "type": "number"
+        },
+        "width": {
+          "type": "number"
+        },
+        "height": {
+          "type": "number"
+        },
+        "src": {
+          "type": "string"
+        },
+        "srcMobile": {
+          "type": "string"
+        },
+        "alt": {
+          "type": "string"
+        },
+        "position": {
+          "enum": [
+            "fill",
+            "to_the_edge",
+            "width_full",
+            "width_half",
+            "width_one_fourth",
+            "width_one_third"
+          ],
+          "type": "string"
+        },
+        "positionMobile": {
+          "enum": [
+            "fill",
+            "to_the_edge",
+            "width_full",
+            "width_half",
+            "width_one_fourth",
+            "width_one_third"
+          ],
+          "type": "string"
+        },
+        "isParandja": {
+          "type": "boolean"
+        },
+        "isParandjaMobile": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "height",
+        "heightMobile",
+        "src",
+        "srcMobile",
+        "width",
+        "widthMobile"
+      ]
+    },
+    "ImgSizeMobile": {
+      "type": "object",
+      "properties": {
+        "widthMobile": {
+          "type": "number"
+        },
+        "heightMobile": {
+          "type": "number"
+        },
+        "src": {
+          "type": "string"
+        },
+        "srcMobile": {
+          "type": "string"
+        },
+        "alt": {
+          "type": "string"
+        },
+        "position": {
+          "enum": [
+            "fill",
+            "to_the_edge",
+            "width_full",
+            "width_half",
+            "width_one_fourth",
+            "width_one_third"
+          ],
+          "type": "string"
+        },
+        "positionMobile": {
+          "enum": [
+            "fill",
+            "to_the_edge",
+            "width_full",
+            "width_half",
+            "width_one_fourth",
+            "width_one_third"
+          ],
+          "type": "string"
+        },
+        "isParandja": {
+          "type": "boolean"
+        },
+        "isParandjaMobile": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "heightMobile",
+        "src",
+        "srcMobile",
+        "widthMobile"
+      ]
+    },
+    "ImgSizeDesktop": {
+      "type": "object",
+      "properties": {
+        "width": {
+          "type": "number"
+        },
+        "height": {
+          "type": "number"
+        },
+        "src": {
+          "type": "string"
+        },
+        "srcMobile": {
+          "type": "string"
+        },
+        "alt": {
+          "type": "string"
+        },
+        "position": {
+          "enum": [
+            "fill",
+            "to_the_edge",
+            "width_full",
+            "width_half",
+            "width_one_fourth",
+            "width_one_third"
+          ],
+          "type": "string"
+        },
+        "positionMobile": {
+          "enum": [
+            "fill",
+            "to_the_edge",
+            "width_full",
+            "width_half",
+            "width_one_fourth",
+            "width_one_third"
+          ],
+          "type": "string"
+        },
+        "isParandja": {
+          "type": "boolean"
+        },
+        "isParandjaMobile": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "height",
+        "src",
+        "srcMobile",
+        "width"
+      ]
+    },
+    "TextFormat": {
+      "type": "object",
+      "properties": {
+        "size": {
+          "enum": [
+            "size1",
+            "size2",
+            "size3",
+            "size4",
+            "size5",
+            "size6",
+            "size7"
+          ],
+          "type": "string"
+        },
+        "color": {
+          "enum": [
+            "color1",
+            "color2",
+            "color3",
+            "color4"
+          ],
+          "type": "string"
+        },
+        "align": {
+          "enum": [
+            "center",
+            "left",
+            "right"
+          ],
+          "type": "string"
+        }
+      }
+    },
+    "HeadCell": {
+      "type": "object",
+      "properties": {
+        "text": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            {
+              "type": "array",
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "enum": [
+                          "text"
+                        ]
+                      },
+                      "content": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "content",
+                      "type"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "enum": [
+                          "link"
+                        ]
+                      },
+                      "content": {
+                        "type": "string"
+                      },
+                      "href": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "content",
+                      "href",
+                      "type"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "enum": [
+                          "br"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "type"
+                    ]
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "img": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/ImgAny_1"
+            },
+            {
+              "$ref": "#/definitions/ImgSizeAll"
+            },
+            {
+              "$ref": "#/definitions/ImgSizeMobile"
+            },
+            {
+              "$ref": "#/definitions/ImgSizeDesktop"
+            }
+          ]
+        },
+        "contentAlign": {
+          "enum": [
+            "center",
+            "left",
+            "right"
+          ],
+          "type": "string"
+        },
+        "size": {
+          "enum": [
+            "size1",
+            "size2",
+            "size3",
+            "size4",
+            "size5",
+            "size6",
+            "size7"
+          ],
+          "type": "string"
+        },
+        "color": {
+          "enum": [
+            "color1",
+            "color2",
+            "color3",
+            "color4"
+          ],
+          "type": "string"
+        },
+        "align": {
+          "enum": [
+            "center",
+            "left",
+            "right"
+          ],
+          "type": "string"
+        }
+      }
+    },
+    "WidgetVideoYouTube_1": {
+      "type": "object",
+      "properties": {
+        "widgetName": {
+          "type": "string",
+          "enum": [
+            "raVideo"
+          ]
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "youtube"
+          ]
+        },
+        "id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "widgetName"
+      ]
+    },
+    "WidgetVideoNative_1": {
+      "type": "object",
+      "properties": {
+        "widgetName": {
+          "type": "string",
+          "enum": [
+            "raVideo"
+          ]
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "embedded"
+          ]
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/VideoNativeSource_1"
+          }
+        },
+        "width": {
+          "type": "number"
+        },
+        "height": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "height",
+        "sources",
+        "type",
+        "widgetName",
+        "width"
+      ]
+    },
+    "VideoNativeSource_1": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "$ref": "#/definitions/VideoMimeTypes"
+        },
+        "src": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "src",
+        "type"
+      ]
+    },
+    "VideoMimeTypes": {
+      "enum": [
+        "video/3gpp",
+        "video/mp4",
+        "video/mpeg",
+        "video/ogg",
+        "video/quicktime",
+        "video/webm"
+      ],
+      "type": "string"
+    },
+    "TextBlock_1": {
+      "type": "object",
+      "properties": {
+        "gapSize": {
+          "enum": [
+            "m",
+            "s"
+          ],
+          "type": "string"
+        },
+        "theme": {
+          "enum": [
+            "default",
+            "primary",
+            "secondary",
+            "tertiary"
+          ],
+          "type": "string"
+        },
+        "padding": {
+          "enum": [
+            "type1",
+            "type2"
+          ],
+          "type": "string"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/TextFormat"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "content": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "content"
+                  ]
+                }
+              ]
+            },
+            {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/TextFormat"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "text"
+                                ]
+                              },
+                              "content": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "content",
+                              "type"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "link"
+                                ]
+                              },
+                              "content": {
+                                "type": "string"
+                              },
+                              "href": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "content",
+                              "href",
+                              "type"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "br"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "type"
+                            ]
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "items"
+                  ]
+                }
+              ]
+            },
+            {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/TextFormat"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "content": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "content"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "text"
+                                ]
+                              },
+                              "content": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "content",
+                              "type"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "link"
+                                ]
+                              },
+                              "content": {
+                                "type": "string"
+                              },
+                              "href": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "content",
+                              "href",
+                              "type"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "br"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "type"
+                            ]
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "items"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "text": {
+          "anyOf": [
+            {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/TextFormat"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "content": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "content"
+                  ]
+                }
+              ]
+            },
+            {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/TextFormat"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "text"
+                                ]
+                              },
+                              "content": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "content",
+                              "type"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "link"
+                                ]
+                              },
+                              "content": {
+                                "type": "string"
+                              },
+                              "href": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "content",
+                              "href",
+                              "type"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "br"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "type"
+                            ]
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "items"
+                  ]
+                }
+              ]
+            },
+            {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/TextFormat"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "content": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "content"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "text"
+                                ]
+                              },
+                              "content": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "content",
+                              "type"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "link"
+                                ]
+                              },
+                              "content": {
+                                "type": "string"
+                              },
+                              "href": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "content",
+                              "href",
+                              "type"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "br"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "type"
+                            ]
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "items"
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    "WidgetShowCaseRoll": {
+      "type": "object",
+      "properties": {
+        "widgetName": {
+          "type": "string",
+          "enum": [
+            "raShowcase"
+          ]
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "roll"
+          ]
+        },
+        "blocks": {
+          "type": "array",
+          "items": [
+            {
+              "$ref": "#/definitions/ShowCaseBlockRoll"
+            }
+          ],
+          "minItems": 1,
+          "additionalItems": {
+            "$ref": "#/definitions/ShowCaseBlockRoll"
+          }
+        }
+      },
+      "required": [
+        "blocks",
+        "type",
+        "widgetName"
+      ]
+    },
+    "ShowCaseBlockRoll": {
+      "type": "object",
+      "properties": {
+        "img": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/ImgAny_1"
+            },
+            {
+              "$ref": "#/definitions/ImgSizeAll"
+            },
+            {
+              "$ref": "#/definitions/ImgSizeMobile"
+            },
+            {
+              "$ref": "#/definitions/ImgSizeDesktop"
+            }
+          ]
+        },
+        "imgLink": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "img"
+      ]
+    },
+    "WidgetShowCaseBillboard_1": {
+      "type": "object",
+      "properties": {
+        "widgetName": {
+          "type": "string",
+          "enum": [
+            "raShowcase"
+          ]
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "billboard"
+          ]
+        },
+        "blocks": {
+          "type": "array",
+          "items": [
+            {
+              "$ref": "#/definitions/ShowCaseBlock_1"
+            }
+          ],
+          "minItems": 1,
+          "additionalItems": {
+            "$ref": "#/definitions/ShowCaseBlock_1"
+          }
+        }
+      },
+      "required": [
+        "blocks",
+        "type",
+        "widgetName"
+      ]
+    },
+    "ShowCaseBlock_1": {
+      "type": "object",
+      "properties": {
+        "img": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/ImgAny_1"
+            },
+            {
+              "$ref": "#/definitions/ImgSizeAll"
+            },
+            {
+              "$ref": "#/definitions/ImgSizeMobile"
+            },
+            {
+              "$ref": "#/definitions/ImgSizeDesktop"
+            }
+          ]
+        },
+        "imgLink": {
+          "type": "string"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/TextFormat"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "content": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "content"
+                  ]
+                }
+              ]
+            },
+            {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/TextFormat"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "text"
+                                ]
+                              },
+                              "content": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "content",
+                              "type"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "link"
+                                ]
+                              },
+                              "content": {
+                                "type": "string"
+                              },
+                              "href": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "content",
+                              "href",
+                              "type"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "br"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "type"
+                            ]
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "items"
+                  ]
+                }
+              ]
+            },
+            {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/TextFormat"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "content": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "content"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "text"
+                                ]
+                              },
+                              "content": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "content",
+                              "type"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "link"
+                                ]
+                              },
+                              "content": {
+                                "type": "string"
+                              },
+                              "href": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "content",
+                              "href",
+                              "type"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "br"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "type"
+                            ]
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "items"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "text": {
+          "anyOf": [
+            {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/TextFormat"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "content": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "content"
+                  ]
+                }
+              ]
+            },
+            {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/TextFormat"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "text"
+                                ]
+                              },
+                              "content": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "content",
+                              "type"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "link"
+                                ]
+                              },
+                              "content": {
+                                "type": "string"
+                              },
+                              "href": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "content",
+                              "href",
+                              "type"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "br"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "type"
+                            ]
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "items"
+                  ]
+                }
+              ]
+            },
+            {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/TextFormat"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "content": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "content"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "text"
+                                ]
+                              },
+                              "content": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "content",
+                              "type"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "link"
+                                ]
+                              },
+                              "content": {
+                                "type": "string"
+                              },
+                              "href": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "content",
+                              "href",
+                              "type"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "br"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "type"
+                            ]
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "items"
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "required": [
+        "img"
+      ]
+    },
+    "WidgetShowCaseChess_1": {
+      "type": "object",
+      "properties": {
+        "widgetName": {
+          "type": "string",
+          "enum": [
+            "raShowcase"
+          ]
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "chess"
+          ]
+        },
+        "blocks": {
+          "type": "array",
+          "items": [
+            {
+              "$ref": "#/definitions/ShowCaseBlockChess_1"
+            }
+          ],
+          "minItems": 1,
+          "additionalItems": {
+            "$ref": "#/definitions/ShowCaseBlockChess_1"
+          }
+        }
+      },
+      "required": [
+        "blocks",
+        "type",
+        "widgetName"
+      ]
+    },
+    "ShowCaseBlockChess_1": {
+      "type": "object",
+      "properties": {
+        "reverse": {
+          "type": "boolean"
+        },
+        "img": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/ImgAny_1"
+            },
+            {
+              "$ref": "#/definitions/ImgSizeAll"
+            },
+            {
+              "$ref": "#/definitions/ImgSizeMobile"
+            },
+            {
+              "$ref": "#/definitions/ImgSizeDesktop"
+            }
+          ]
+        },
+        "imgLink": {
+          "type": "string"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/TextFormat"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "content": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "content"
+                  ]
+                }
+              ]
+            },
+            {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/TextFormat"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "text"
+                                ]
+                              },
+                              "content": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "content",
+                              "type"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "link"
+                                ]
+                              },
+                              "content": {
+                                "type": "string"
+                              },
+                              "href": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "content",
+                              "href",
+                              "type"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "br"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "type"
+                            ]
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "items"
+                  ]
+                }
+              ]
+            },
+            {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/TextFormat"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "content": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "content"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "text"
+                                ]
+                              },
+                              "content": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "content",
+                              "type"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "link"
+                                ]
+                              },
+                              "content": {
+                                "type": "string"
+                              },
+                              "href": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "content",
+                              "href",
+                              "type"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "br"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "type"
+                            ]
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "items"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "text": {
+          "anyOf": [
+            {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/TextFormat"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "content": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "content"
+                  ]
+                }
+              ]
+            },
+            {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/TextFormat"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "text"
+                                ]
+                              },
+                              "content": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "content",
+                              "type"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "link"
+                                ]
+                              },
+                              "content": {
+                                "type": "string"
+                              },
+                              "href": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "content",
+                              "href",
+                              "type"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "br"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "type"
+                            ]
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "items"
+                  ]
+                }
+              ]
+            },
+            {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/TextFormat"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "content": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "content"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "text"
+                                ]
+                              },
+                              "content": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "content",
+                              "type"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "link"
+                                ]
+                              },
+                              "content": {
+                                "type": "string"
+                              },
+                              "href": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "content",
+                              "href",
+                              "type"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "br"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "type"
+                            ]
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "items"
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "required": [
+        "img"
+      ]
+    },
+    "WidgetShowCaseTileM_1": {
+      "type": "object",
+      "properties": {
+        "widgetName": {
+          "type": "string",
+          "enum": [
+            "raShowcase"
+          ]
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "tileM"
+          ]
+        },
+        "blocks": {
+          "type": "array",
+          "items": [
+            {
+              "$ref": "#/definitions/ShowCaseBlock_1"
+            }
+          ],
+          "minItems": 1,
+          "additionalItems": {
+            "$ref": "#/definitions/ShowCaseBlock_1"
+          }
+        }
+      },
+      "required": [
+        "blocks",
+        "type",
+        "widgetName"
+      ]
+    },
+    "WidgetShowCaseTileL_1": {
+      "type": "object",
+      "properties": {
+        "widgetName": {
+          "type": "string",
+          "enum": [
+            "raShowcase"
+          ]
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "tileL"
+          ]
+        },
+        "blocks": {
+          "type": "array",
+          "items": [
+            {
+              "$ref": "#/definitions/ShowCaseBlock_1"
+            }
+          ],
+          "minItems": 1,
+          "additionalItems": {
+            "$ref": "#/definitions/ShowCaseBlock_1"
+          }
+        }
+      },
+      "required": [
+        "blocks",
+        "type",
+        "widgetName"
+      ]
+    },
+    "WidgetShowCaseTileXL_1": {
+      "type": "object",
+      "properties": {
+        "widgetName": {
+          "type": "string",
+          "enum": [
+            "raShowcase"
+          ]
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "tileXL"
+          ]
+        },
+        "blocks": {
+          "type": "array",
+          "items": [
+            {
+              "$ref": "#/definitions/ShowCaseBlock_1"
+            }
+          ],
+          "minItems": 1,
+          "additionalItems": {
+            "$ref": "#/definitions/ShowCaseBlock_1"
+          }
+        }
+      },
+      "required": [
+        "blocks",
+        "type",
+        "widgetName"
+      ]
+    },
+    "WidgetShowCaseTileSecondary_1": {
+      "type": "object",
+      "properties": {
+        "widgetName": {
+          "type": "string",
+          "enum": [
+            "raShowcase"
+          ]
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "tileSecondary"
+          ]
+        },
+        "blocks": {
+          "type": "array",
+          "items": [
+            {
+              "$ref": "#/definitions/ShowCaseBlockSecondary_1"
+            }
+          ],
+          "minItems": 1,
+          "additionalItems": {
+            "$ref": "#/definitions/ShowCaseBlockSecondary_1"
+          }
+        }
+      },
+      "required": [
+        "blocks",
+        "type",
+        "widgetName"
+      ]
+    },
+    "ShowCaseBlockSecondary_1": {
+      "type": "object",
+      "properties": {
+        "img": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/ImgAny_1"
+            },
+            {
+              "$ref": "#/definitions/ImgSizeAll"
+            },
+            {
+              "$ref": "#/definitions/ImgSizeMobile"
+            },
+            {
+              "$ref": "#/definitions/ImgSizeDesktop"
+            }
+          ]
+        },
+        "imgLink": {
+          "type": "string"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/TextFormat"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "content": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "content"
+                  ]
+                }
+              ]
+            },
+            {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/TextFormat"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "text"
+                                ]
+                              },
+                              "content": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "content",
+                              "type"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "link"
+                                ]
+                              },
+                              "content": {
+                                "type": "string"
+                              },
+                              "href": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "content",
+                              "href",
+                              "type"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "br"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "type"
+                            ]
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "items"
+                  ]
+                }
+              ]
+            },
+            {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/TextFormat"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "content": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "content"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "text"
+                                ]
+                              },
+                              "content": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "content",
+                              "type"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "link"
+                                ]
+                              },
+                              "content": {
+                                "type": "string"
+                              },
+                              "href": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "content",
+                              "href",
+                              "type"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "br"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "type"
+                            ]
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "items"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "text": {
+          "anyOf": [
+            {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/TextFormat"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "content": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "content"
+                  ]
+                }
+              ]
+            },
+            {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/TextFormat"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "text"
+                                ]
+                              },
+                              "content": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "content",
+                              "type"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "link"
+                                ]
+                              },
+                              "content": {
+                                "type": "string"
+                              },
+                              "href": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "content",
+                              "href",
+                              "type"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "br"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "type"
+                            ]
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "items"
+                  ]
+                }
+              ]
+            },
+            {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/TextFormat"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "content": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "content"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "text"
+                                ]
+                              },
+                              "content": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "content",
+                              "type"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "link"
+                                ]
+                              },
+                              "content": {
+                                "type": "string"
+                              },
+                              "href": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "content",
+                              "href",
+                              "type"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "br"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "type"
+                            ]
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "items"
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "required": [
+        "img"
+      ]
+    },
+    "ContractVersion.V03": {
+      "type": "number",
+      "enum": [
+        0.3
+      ]
+    }
+  },
+  "$schema": "http://json-schema.org/draft-07/schema#"
+}

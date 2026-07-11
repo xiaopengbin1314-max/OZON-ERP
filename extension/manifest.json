@@ -1,0 +1,183 @@
+{
+  "manifest_version": 3,
+  "name": "GeekOzon ERP",
+  "version": "3.0.0",
+  "description": "Ozon / 1688 / 淘宝 / 天猫 / 拼多多 / 京东 / 速卖通 / Wildberries 商品采集与 ERP 管理（源码化重写版 v3）",
+  "permissions": [
+    "activeTab", "storage", "scripting", "contextMenus",
+    "notifications", "cookies",
+    "declarativeNetRequest", "declarativeNetRequestWithHostAccess"
+  ],
+  "host_permissions": [
+    "https://*.ozon.ru/*", "https://*.ozon.kz/*", "https://*.ozon.by/*", "https://*.ozon.com/*",
+    "https://*.1688.com/*", "https://*.taobao.com/*", "https://*.tmall.com/*",
+    "https://*.pinduoduo.com/*", "https://*.yangkeduo.com/*",
+    "https://*.jd.com/*",
+    "https://*.aliexpress.ru/*", "https://*.aliexpress.com/*",
+    "https://*.amazon.com/*", "https://*.amazon.de/*", "https://*.amazon.co.uk/*",
+    "https://*.amazon.fr/*", "https://*.amazon.it/*", "https://*.amazon.es/*",
+    "https://*.amazon.ca/*", "https://*.amazon.co.jp/*", "https://*.amazon.ae/*",
+    "https://*.wildberries.ru/*",
+    "http://localhost:5000/*", "http://127.0.0.1:5000/*"
+  ],
+  "action": {
+    "default_popup": "entrypoints/popup.html",
+    "default_icon": { "16": "assets/icon-16.png", "48": "assets/icon-48.png", "128": "assets/icon-128.png" },
+    "default_title": "GeekOzon ERP"
+  },
+  "background": { "service_worker": "entrypoints/background.js" },
+  "content_scripts": [
+    {
+      "matches": ["https://*.ozon.ru/*", "https://*.ozon.kz/*", "https://*.ozon.by/*", "https://*.ozon.com/*"],
+      "js": [
+        "core/namespace.js",
+        "core/config.js",
+        "core/api-client.js",
+        "core/chrome-storage.js",
+        "core/cross-tab.js",
+        "core/dom-utils.js",
+        "core/event-bus.js",
+        "core/scanner-base.js",
+        "components/design-tokens.js",
+        "components/base-component.js",
+        "components/modal.js",
+        "components/drawer.js",
+        "components/toast.js",
+        "components/popover.js",
+        "components/ui-primitives.js",
+        "features/ozon/ozon-scanner.js",
+        "features/selection/selection-rules-modal.js",
+        "features/field-settings/field-settings-modal.js",
+        "features/favorite/favorite.js",
+        "features/publish/publish-modal.js",
+        "features/pricing/profit-calculator.js",
+        "features/floating-bar/floating-bar.js"
+      ],
+      "css": ["features/floating-bar/floating-bar.css"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://seller.ozon.ru/*"],
+      "js": [
+        "core/namespace.js", "core/config.js", "core/api-client.js", "core/chrome-storage.js",
+        "core/cross-tab.js", "core/dom-utils.js", "core/event-bus.js",
+        "components/design-tokens.js", "components/base-component.js",
+        "components/modal.js", "components/toast.js", "components/ui-primitives.js",
+        "features/ozon/seller-bridge.js",
+        "features/pricing/profit-calculator.js",
+        "features/floating-bar/floating-bar.js"
+      ],
+      "css": ["features/floating-bar/floating-bar.css"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://*.1688.com/*"],
+      "js": [
+        "core/namespace.js", "core/config.js", "core/api-client.js", "core/chrome-storage.js",
+        "core/dom-utils.js", "core/event-bus.js", "core/structured-data.js", "core/scanner-base.js",
+        "components/design-tokens.js", "components/base-component.js", "components/toast.js", "components/ui-primitives.js",
+        "features/floating-bar/floating-bar.js",
+        "features/scanners/alibaba-scanner.js"
+      ],
+      "css": ["features/floating-bar/floating-bar.css"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": ["https://*.taobao.com/*"],
+      "js": [
+        "core/namespace.js", "core/config.js", "core/api-client.js", "core/chrome-storage.js",
+        "core/dom-utils.js", "core/event-bus.js", "core/structured-data.js", "core/scanner-base.js",
+        "components/design-tokens.js", "components/base-component.js", "components/toast.js", "components/ui-primitives.js",
+        "features/floating-bar/floating-bar.js",
+        "features/scanners/taobao-scanner.js"
+      ],
+      "css": ["features/floating-bar/floating-bar.css"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": ["https://*.tmall.com/*"],
+      "js": [
+        "core/namespace.js", "core/config.js", "core/api-client.js", "core/chrome-storage.js",
+        "core/dom-utils.js", "core/event-bus.js", "core/structured-data.js", "core/scanner-base.js",
+        "components/design-tokens.js", "components/base-component.js", "components/toast.js", "components/ui-primitives.js",
+        "features/floating-bar/floating-bar.js",
+        "features/scanners/tmall-scanner.js"
+      ],
+      "css": ["features/floating-bar/floating-bar.css"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": ["https://*.pinduoduo.com/*", "https://*.yangkeduo.com/*"],
+      "js": [
+        "core/namespace.js", "core/config.js", "core/api-client.js", "core/chrome-storage.js",
+        "core/dom-utils.js", "core/event-bus.js", "core/structured-data.js", "core/scanner-base.js",
+        "components/design-tokens.js", "components/base-component.js", "components/toast.js", "components/ui-primitives.js",
+        "features/floating-bar/floating-bar.js",
+        "features/scanners/pdd-scanner.js"
+      ],
+      "css": ["features/floating-bar/floating-bar.css"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": ["https://*.jd.com/*"],
+      "js": [
+        "core/namespace.js", "core/config.js", "core/api-client.js", "core/chrome-storage.js",
+        "core/dom-utils.js", "core/event-bus.js", "core/structured-data.js", "core/scanner-base.js",
+        "components/design-tokens.js", "components/base-component.js", "components/toast.js", "components/ui-primitives.js",
+        "features/floating-bar/floating-bar.js",
+        "features/scanners/jd-scanner.js"
+      ],
+      "css": ["features/floating-bar/floating-bar.css"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": ["https://*.aliexpress.ru/*", "https://*.aliexpress.com/*"],
+      "js": [
+        "core/namespace.js", "core/config.js", "core/api-client.js", "core/chrome-storage.js",
+        "core/dom-utils.js", "core/event-bus.js", "core/structured-data.js", "core/scanner-base.js",
+        "components/design-tokens.js", "components/base-component.js", "components/toast.js", "components/ui-primitives.js",
+        "features/floating-bar/floating-bar.js",
+        "features/scanners/aliexpress-scanner.js"
+      ],
+      "css": ["features/floating-bar/floating-bar.css"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": ["https://*.wildberries.ru/*"],
+      "js": [
+        "core/namespace.js", "core/config.js", "core/api-client.js", "core/chrome-storage.js",
+        "core/dom-utils.js", "core/event-bus.js", "core/structured-data.js", "core/scanner-base.js",
+        "components/design-tokens.js", "components/base-component.js", "components/toast.js", "components/ui-primitives.js",
+        "features/floating-bar/floating-bar.js",
+        "features/scanners/wb-scanner.js"
+      ],
+      "css": ["features/floating-bar/floating-bar.css"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "https://*.amazon.com/*", "https://*.amazon.de/*", "https://*.amazon.co.uk/*",
+        "https://*.amazon.fr/*", "https://*.amazon.it/*", "https://*.amazon.es/*",
+        "https://*.amazon.ca/*", "https://*.amazon.co.jp/*", "https://*.amazon.ae/*"
+      ],
+      "js": [
+        "core/namespace.js", "core/config.js", "core/api-client.js", "core/chrome-storage.js",
+        "core/dom-utils.js", "core/event-bus.js", "core/structured-data.js", "core/scanner-base.js",
+        "components/design-tokens.js", "components/base-component.js", "components/toast.js", "components/ui-primitives.js",
+        "features/floating-bar/floating-bar.js",
+        "features/scanners/amazon-scanner.js"
+      ],
+      "css": ["features/floating-bar/floating-bar.css"],
+      "run_at": "document_start"
+    }
+  ],
+  "web_accessible_resources": [
+    { "resources": ["entrypoints/inject.js", "assets/*"], "matches": ["<all_urls>"] }
+  ],
+  "commands": {
+    "collect-product": { "suggested_key": { "default": "Ctrl+Shift+C" }, "description": "采集当前商品" },
+    "quick-publish": { "suggested_key": { "default": "Ctrl+Shift+P" }, "description": "一键刊登" }
+  },
+  "options_page": "entrypoints/options.html",
+  "icons": { "16": "assets/icon-16.png", "48": "assets/icon-48.png", "128": "assets/icon-128.png" }
+}

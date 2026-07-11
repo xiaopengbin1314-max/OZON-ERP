@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="GeekOzon ERP - Ozon 电商全链路管理系统">
+  <title>GeekOzon ERP</title>
+
+  <!-- Tailwind Play CDN（让 TailAdmin 真实类生效） -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      corePlugins: { preflight: false },
+      theme: {
+        extend: {
+          fontFamily: {
+            outfit: ['Outfit', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              25: '#f2f7ff', 50: '#ecf3ff', 100: '#dde9ff', 200: '#c2d6ff',
+              300: '#9cb9ff', 400: '#7592ff', 500: '#465fff', 600: '#3641f5',
+              700: '#2a31d8', 800: '#252dae', 900: '#262e89', 950: '#161950',
+            },
+            gray: {
+              25: '#fcfcfd', 50: '#f9fafb', 100: '#f2f4f7', 200: '#e4e7ec',
+              300: '#d0d5dd', 400: '#98a2b3', 500: '#667085', 600: '#475467',
+              700: '#344054', 800: '#1d2939', 900: '#101828', 950: '#0c111d',
+              dark: '#1a2231',
+            },
+            success: {
+              25: '#f6fef9', 50: '#ecfdf3', 100: '#d1fadf', 200: '#a6f4c5',
+              300: '#6ce9a6', 400: '#32d583', 500: '#12b76a', 600: '#039855',
+              700: '#027a48', 800: '#05603a', 900: '#054f31', 950: '#053321',
+            },
+            error: {
+              25: '#fffbfa', 50: '#fef3f2', 100: '#fee4e2', 200: '#fecdca',
+              300: '#fda29b', 400: '#f97066', 500: '#f04438', 600: '#d92d20',
+              700: '#b42318', 800: '#912018', 900: '#7a271a', 950: '#55160c',
+            },
+            warning: {
+              25: '#fffcf5', 50: '#fffaeb', 100: '#fef0c7', 200: '#fedf89',
+              300: '#fec84b', 400: '#fdb022', 500: '#f79009', 600: '#dc6803',
+              700: '#b54708', 800: '#93370d', 900: '#7a2e0e', 950: '#4e1d09',
+            },
+            orange: {
+              25: '#fffaf5', 50: '#fff6ed', 100: '#ffead5', 200: '#fddcab',
+              300: '#feb273', 400: '#fd853a', 500: '#fb6514', 600: '#ec4a0a',
+              700: '#c4320a', 800: '#9c2a10', 900: '#7e2410', 950: '#511c10',
+            },
+          },
+          fontSize: {
+            'theme-sm': ['14px', '20px'],
+            'theme-xs': ['12px', '18px'],
+            'title-sm': ['30px', '38px'],
+          },
+          boxShadow: {
+            'theme-xs': '0px 1px 2px 0px rgba(16, 24, 40, 0.05)',
+            'theme-sm': '0px 1px 3px 0px rgba(16, 24, 40, 0.1), 0px 1px 2px 0px rgba(16, 24, 40, 0.06)',
+            'theme-md': '0px 4px 8px -2px rgba(16, 24, 40, 0.1), 0px 2px 4px -2px rgba(16, 24, 40, 0.06)',
+            'theme-lg': '0px 12px 16px -4px rgba(16, 24, 40, 0.08), 0px 4px 6px -2px rgba(16, 24, 40, 0.03)',
+            'theme-xl': '0px 20px 24px -4px rgba(16, 24, 40, 0.08), 0px 8px 8px -4px rgba(16, 24, 40, 0.03)',
+          },
+        },
+      },
+    };
+  </script>
+
+  <!-- Outfit 字体（TailAdmin 默认字体） -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap" rel="stylesheet">
+
+  <!-- Lucide Icons CDN -->
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+
+  <!-- ERP 原有样式（保留供 ERP 业务组件用） -->
+  <link rel="stylesheet" href="css/variables.css">
+  <link rel="stylesheet" href="css/reset.css">
+  <link rel="stylesheet" href="css/layout.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/pages.css">
+
+  <style>
+    /* TailAdmin @utility 自定义类（Play CDN 不支持 @utility，纯 CSS 实现） */
+    .menu-item {
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      border-radius: 0.5rem;
+      padding: 0.5rem 0.75rem;
+      font-size: 14px;
+      line-height: 20px;
+      font-weight: 500;
+    }
+    .menu-item-active {
+      background-color: #ecf3ff;
+      color: #465fff;
+    }
+    .menu-item-inactive {
+      color: #344054;
+    }
+    .menu-item-inactive:hover {
+      background-color: #f2f4f7;
+      color: #344054;
+    }
+    .menu-item-icon-active { fill: #465fff; }
+    .menu-item-icon-inactive { fill: #667085; }
+    .menu-item-arrow {
+      position: absolute;
+      top: 50%;
+      right: 0.625rem;
+      transform: translateY(-50%);
+      transition: transform 0.2s;
+    }
+    .menu-item-arrow-active { transform: translateY(-50%) rotate(180deg); }
+    .menu-dropdown {
+      overflow: hidden;
+      max-height: 0;
+      transition: max-height 0.3s ease;
+    }
+    .nav-parent.expanded .menu-dropdown { max-height: 500px; }
+    .nav-parent.expanded > .menu-item .menu-item-arrow {
+      transform: translateY(-50%) rotate(180deg);
+    }
+    .menu-dropdown-item {
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      border-radius: 0.5rem;
+      padding: 0.625rem 0.75rem;
+      font-size: 14px;
+      line-height: 20px;
+      font-weight: 500;
+    }
+    .menu-dropdown-item-active { background-color: #ecf3ff; color: #465fff; }
+    .menu-dropdown-item-inactive { color: #344054; }
+    .menu-dropdown-item-inactive:hover { background-color: #f2f4f7; }
+
+    /* ERP sidebar 折叠状态（保留 ERP JS 依赖） */
+    .sidebar.collapsed { width: 68px !important; }
+    .sidebar.collapsed .menu-text,
+    .sidebar.collapsed .menu-item-arrow,
+    .sidebar.collapsed .menu-dropdown,
+    .sidebar.collapsed .menu-group-title { display: none !important; }
+    .sidebar.collapsed .menu-item { justify-content: center; padding-left: 0; padding-right: 0; }
+    .sidebar.collapsed .logo-text { display: none !important; }
+
+    /* ERP 路由容器 */
+    #pageContainer { min-height: calc(100vh - 80px); }
+    body { font-family: 'Outfit', sans-serif; }
+
+    /* ===== 覆盖 layout.css 中 sidebar 旧样式（旧版 position:fixed + .nav-item 旧样式，新版 flex + Tailwind） ===== */
+    #sidebar {
+      position: relative !important;
+      top: auto !important;
+      left: auto !important;
+      bottom: auto !important;
+      width: 260px !important;
+      height: 100vh !important;
+      background: #ffffff !important;
+      border-right: 1px solid #e4e7ec !important;
+    }
+    #sidebar.collapsed { width: 68px !important; }
+
+    /* .nav-item 旧样式覆盖：让 .menu-item / .menu-dropdown-item 接管视觉 */
+    #sidebar .nav-item {
+      padding: 0.5rem 0.75rem !important;
+      border-radius: 0.5rem !important;
+      margin: 0 !important;
+      width: auto !important;
+      color: #344054 !important;
+      font-size: 14px !important;
+      font-weight: 500 !important;
+      letter-spacing: normal !important;
+      background: transparent !important;
+    }
+    #sidebar .nav-item:hover {
+      background: #f2f4f7 !important;
+      color: #344054 !important;
+    }
+    #sidebar .nav-item.active {
+      background: #ecf3ff !important;
+      color: #465fff !important;
+      font-weight: 500 !important;
+    }
+    /* 父级菜单按钮：不要 space-between，不要展开时加灰底 */
+    #sidebar .nav-parent > .nav-item {
+      justify-content: flex-start !important;
+      gap: 0.75rem !important;
+    }
+    #sidebar .nav-parent.expanded > .nav-item {
+      background: transparent !important;
+    }
+    /* 旧 .nav-icon 不影响新结构（新结构用 menu-item-icon） */
+    #sidebar .nav-icon,
+    #sidebar .menu-item-icon {
+      margin-right: 0 !important;
+      width: 20px !important;
+      height: 20px !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+    }
+    /* 隐藏旧 nav-submenu 圆点伪元素 */
+    #sidebar .nav-submenu .nav-item::before { display: none !important; }
+    /* 旧 sidebar-header/sidebar-logo/sidebar-footer 不影响新结构 */
+    #sidebar .sidebar-header,
+    #sidebar .sidebar-logo,
+    #sidebar .sidebar-footer { padding: 0 !important; border: 0 !important; margin: 0 !important; }
+    /* collapsed 状态：隐藏文字、箭头、下拉、分组标题 */
+    #sidebar.collapsed .menu-text,
+    #sidebar.collapsed .menu-item-arrow,
+    #sidebar.collapsed .menu-dropdown,
+    #sidebar.collapsed .menu-group-title,
+    #sidebar.collapsed .logo-text { display: none !important; }
+    #sidebar.collapsed .nav-item { justify-content: center !important; padding: 0.5rem 0 !important; }
+
+    /* ===== 主内容区（flex 子项，不需要 margin-left） ===== */
+    .main-content {
+      margin-left: 0 !important;
+      margin-top: 0 !important;
+      padding: 24px 24px 32px !important;
+    }
+    .sidebar ~ .main-content.collapsed-layout { margin-left: 0 !important; }
+  </style>
+</head>
+<body class="bg-gray-50">
+
+<div class="flex h-screen overflow-hidden">
+
+  <!-- ==================== 侧栏（TailAdmin 真实结构） ==================== -->
+  <aside class="sidebar nav-parent is-open !w-[260px] shrink-0 bg-white border-r border-gray-200 overflow-y-auto no-scrollbar" id="sidebar">
+    <!-- 侧栏顶部 Logo -->
+    <div class="flex items-center gap-2 px-5 py-5 border-b border-gray-100">
+      <a href="#/home" class="flex items-center gap-2.5">
+        <span class="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-500 to-brand-700 flex items-center justify-center text-white font-bold text-sm shadow-theme-sm">G</span>
+        <span class="logo-text font-semibold text-gray-800 text-lg">GeekOzon</span>
+      </a>
+    </div>
+
+    <nav class="px-3 py-4 flex flex-col gap-1" id="sidebarNav">
+      <!-- 首页 -->
+      <a class="nav-item menu-item menu-item-active active" href="#/home" data-page="home" title="首页">
+        <span class="menu-item-icon menu-item-icon-active">
+          <i data-lucide="home" style="width:20px;height:20px;"></i>
+        </span>
+        <span class="menu-text">首页</span>
+      </a>
+
+      <!-- 刊登管理（可展开） -->
+      <div class="nav-parent" data-expandable>
+        <button class="nav-item menu-item menu-item-inactive w-full" title="刊登管理">
+          <span class="menu-item-icon menu-item-icon-inactive">
+            <i data-lucide="upload-cloud" style="width:20px;height:20px;"></i>
+          </span>
+          <span class="menu-text">刊登管理</span>
+          <span class="menu-item-arrow">
+            <i data-lucide="chevron-down" style="width:16px;height:16px;"></i>
+          </span>
+        </button>
+        <div class="menu-dropdown pl-9">
+          <a class="nav-item menu-dropdown-item menu-dropdown-item-inactive" href="#/collect" data-page="collect" title="采集箱">
+            <i data-lucide="box" style="width:18px;height:18px;"></i>
+            <span class="menu-text">采集箱</span>
+          </a>
+          <a class="nav-item menu-dropdown-item menu-dropdown-item-inactive" href="#/publish" data-page="publish" title="上架记录">
+            <i data-lucide="clipboard-list" style="width:18px;height:18px;"></i>
+            <span class="menu-text">上架记录</span>
+          </a>
+          <a class="nav-item menu-dropdown-item menu-dropdown-item-inactive" href="#/calculator" data-page="calculator" title="定价计算器">
+            <i data-lucide="calculator" style="width:18px;height:18px;"></i>
+            <span class="menu-text">定价计算器</span>
+          </a>
+          <a class="nav-item menu-dropdown-item menu-dropdown-item-inactive" href="#/online-products" data-page="online-products" title="在线商品">
+            <i data-lucide="package" style="width:18px;height:18px;"></i>
+            <span class="menu-text">在线商品</span>
+          </a>
+        </div>
+      </div>
+
+      <!-- 选品分析 -->
+      <div class="nav-parent" data-expandable>
+        <button class="nav-item menu-item menu-item-inactive w-full" title="选品分析">
+          <span class="menu-item-icon menu-item-icon-inactive">
+            <i data-lucide="bar-chart-3" style="width:20px;height:20px;"></i>
+          </span>
+          <span class="menu-text">选品分析</span>
+          <span class="menu-item-arrow">
+            <i data-lucide="chevron-down" style="width:16px;height:16px;"></i>
+          </span>
+        </button>
+        <div class="menu-dropdown pl-9">
+          <a class="nav-item menu-dropdown-item menu-dropdown-item-inactive" href="#/selection" data-page="selection" title="我的选品">
+            <i data-lucide="star" style="width:18px;height:18px;"></i>
+            <span class="menu-text">我的选品</span>
+          </a>
+          <a class="nav-item menu-dropdown-item menu-dropdown-item-inactive" href="#/keywords" data-page="keywords" title="关键词">
+            <i data-lucide="key-round" style="width:18px;height:18px;"></i>
+            <span class="menu-text">关键词</span>
+          </a>
+        </div>
+      </div>
+
+      <!-- 跟卖监控 -->
+      <div class="nav-parent" data-expandable>
+        <button class="nav-item menu-item menu-item-inactive w-full" title="跟卖监控">
+          <span class="menu-item-icon menu-item-icon-inactive">
+            <i data-lucide="shield-alert" style="width:20px;height:20px;"></i>
+          </span>
+          <span class="menu-text">跟卖监控</span>
+          <span class="menu-item-arrow">
+            <i data-lucide="chevron-down" style="width:16px;height:16px;"></i>
+          </span>
+        </button>
+        <div class="menu-dropdown pl-9">
+          <a class="nav-item menu-dropdown-item menu-dropdown-item-inactive" href="#/hijack-remove" data-page="hijack-remove" title="跟卖下架">
+            <i data-lucide="shield-off" style="width:18px;height:18px;"></i>
+            <span class="menu-text">跟卖下架</span>
+          </a>
+        </div>
+      </div>
+
+      <!-- 促销活动 -->
+      <div class="nav-parent" data-expandable>
+        <button class="nav-item menu-item menu-item-inactive w-full" title="促销活动">
+          <span class="menu-item-icon menu-item-icon-inactive">
+            <i data-lucide="tag" style="width:20px;height:20px;"></i>
+          </span>
+          <span class="menu-text">促销活动</span>
+          <span class="menu-item-arrow">
+            <i data-lucide="chevron-down" style="width:16px;height:16px;"></i>
+          </span>
+        </button>
+        <div class="menu-dropdown pl-9">
+          <a class="nav-item menu-dropdown-item menu-dropdown-item-inactive" href="#/ad-monitor" data-page="ad-monitor" title="AI广告监控">
+            <i data-lucide="bot" style="width:18px;height:18px;"></i>
+            <span class="menu-text">AI广告监控</span>
+          </a>
+          <a class="nav-item menu-dropdown-item menu-dropdown-item-inactive" href="#/promo-remove" data-page="promo-remove" title="自动移除促销">
+            <i data-lucide="x-circle" style="width:18px;height:18px;"></i>
+            <span class="menu-text">自动移除促销</span>
+          </a>
+        </div>
+      </div>
+
+      <!-- 图片管理 -->
+      <div class="nav-parent" data-expandable>
+        <button class="nav-item menu-item menu-item-inactive w-full" title="图片管理">
+          <span class="menu-item-icon menu-item-icon-inactive">
+            <i data-lucide="image" style="width:20px;height:20px;"></i>
+          </span>
+          <span class="menu-text">图片管理</span>
+          <span class="menu-item-arrow">
+            <i data-lucide="chevron-down" style="width:16px;height:16px;"></i>
+          </span>
+        </button>
+        <div class="menu-dropdown pl-9">
+          <a class="nav-item menu-dropdown-item menu-dropdown-item-inactive" href="#/ai-image" data-page="ai-image" title="AI图片生成">
+            <i data-lucide="sparkles" style="width:18px;height:18px;"></i>
+            <span class="menu-text">AI图片生成</span>
+          </a>
+          <a class="nav-item menu-dropdown-item menu-dropdown-item-inactive" href="#/gallery" data-page="gallery" title="我的图库">
+            <i data-lucide="images" style="width:18px;height:18px;"></i>
+            <span class="menu-text">我的图库</span>
+          </a>
+        </div>
+      </div>
+
+      <!-- 店铺管理 -->
+      <div class="nav-parent" data-expandable>
+        <button class="nav-item menu-item menu-item-inactive w-full" title="店铺管理">
+          <span class="menu-item-icon menu-item-icon-inactive">
+            <i data-lucide="store" style="width:20px;height:20px;"></i>
+          </span>
+          <span class="menu-text">店铺管理</span>
+          <span class="menu-item-arrow">
+            <i data-lucide="chevron-down" style="width:16px;height:16px;"></i>
+          </span>
+        </button>
+        <div class="menu-dropdown pl-9">
+          <a class="nav-item menu-dropdown-item menu-dropdown-item-inactive" href="#/account-detail" data-page="account-detail" title="账户明细">
+            <i data-lucide="receipt" style="width:18px;height:18px;"></i>
+            <span class="menu-text">账户明细</span>
+          </a>
+          <a class="nav-item menu-dropdown-item menu-dropdown-item-inactive" href="#/store-manage" data-page="store-manage" title="绑定店铺">
+            <i data-lucide="link" style="width:18px;height:18px;"></i>
+            <span class="menu-text">绑定店铺</span>
+          </a>
+          <a class="nav-item menu-dropdown-item menu-dropdown-item-inactive" href="#/model-manage" data-page="model-manage" title="模型管理">
+            <i data-lucide="brain" style="width:18px;height:18px;"></i>
+            <span class="menu-text">模型管理</span>
+          </a>
+        </div>
+      </div>
+    </nav>
+  </aside>
+
+  <!-- 移动端遮罩 -->
+  <div class="mobile-overlay fixed inset-0 z-40 bg-gray-900/50 lg:hidden" id="mobileOverlay" style="display:none;"></div>
+
+  <!-- ==================== 内容区 ==================== -->
+  <div class="relative flex flex-col flex-1 overflow-x-hidden overflow-y-auto">
+
+    <!-- ===== Header（TailAdmin 真实结构） ===== -->
+    <header class="sticky top-0 z-30 flex w-full items-center justify-between gap-4 border-b border-gray-200 bg-white/90 backdrop-blur-xl px-4 py-3.5 lg:px-6" id="header">
+      <!-- 左侧：折叠按钮 -->
+      <button class="sidebar-toggle flex items-center justify-center w-10 h-10 rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition" id="sidebarToggle" title="切换菜单">
+        <i data-lucide="panel-left-close" style="width:22px;height:22px;"></i>
+      </button>
+
+      <!-- 中间：搜索框（TailAdmin 真实样式） -->
+      <form class="relative hidden md:block flex-1 max-w-md" onsubmit="return false;">
+        <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
+          <i data-lucide="search" style="width:18px;height:18px;"></i>
+        </span>
+        <input type="text" placeholder="搜索商品、订单、关键词..." id="globalSearch"
+          class="h-11 w-full rounded-full border border-gray-200 bg-gray-50 pl-11 pr-20 text-sm text-gray-700 placeholder:text-gray-400 focus:border-brand-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-brand-500/10 transition" />
+        <button type="button" class="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-lg bg-white px-2 py-1 text-xs font-medium text-gray-500 border border-gray-200 shadow-theme-xs">
+          ⌘K
+        </button>
+      </form>
+
+      <!-- 右侧：操作区 -->
+      <div class="flex items-center gap-2 sm:gap-3">
+        <!-- 快捷 Tab -->
+        <nav class="header-tabs hidden lg:flex items-center gap-1 bg-gray-50 rounded-lg p-1" id="headerTabs">
+          <button class="header-tab flex items-center justify-center w-9 h-8 rounded-md text-gray-400 hover:text-gray-700 hover:bg-white transition" data-tab="engine" title="AI 创作引擎">
+            <i data-lucide="sparkles" style="width:16px;height:16px;"></i>
+          </button>
+          <button class="header-tab flex items-center justify-center w-9 h-8 rounded-md text-gray-400 hover:text-gray-700 hover:bg-white transition" data-tab="products" title="AI 产品库">
+            <i data-lucide="box" style="width:16px;height:16px;"></i>
+          </button>
+          <button class="header-tab flex items-center justify-center w-9 h-8 rounded-md text-gray-400 hover:text-gray-700 hover:bg-white transition" data-tab="publish" title="自动刊登神器">
+            <i data-lucide="upload-cloud" style="width:16px;height:16px;"></i>
+          </button>
+        </nav>
+
+        <span class="hidden lg:block w-px h-6 bg-gray-200"></span>
+
+        <!-- 新增操作 -->
+        <button class="header-icon-btn flex items-center justify-center w-10 h-10 rounded-lg text-gray-500 hover:bg-gray-100 hover:text-brand-500 transition" id="newActionBtn" title="新增操作">
+          <i data-lucide="plus" style="width:20px;height:20px;"></i>
+        </button>
+
+        <!-- 通知（带红点+ping 动画） -->
+        <button class="relative flex items-center justify-center w-10 h-10 rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition" title="通知">
+          <i data-lucide="bell" style="width:20px;height:20px;"></i>
+          <span class="absolute top-1.5 right-1.5 flex h-2 w-2">
+            <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-orange-400 opacity-75"></span>
+            <span class="relative inline-flex h-2 w-2 rounded-full bg-orange-500"></span>
+          </span>
+        </button>
+
+        <!-- 消息 -->
+        <button class="flex items-center justify-center w-10 h-10 rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition" title="消息">
+          <i data-lucide="message-square" style="width:20px;height:20px;"></i>
+        </button>
+
+        <span class="hidden lg:block w-px h-6 bg-gray-200"></span>
+
+        <!-- 升级会员 -->
+        <button class="header-btn primary flex items-center gap-1.5 h-10 px-4 rounded-lg bg-brand-500 text-white text-sm font-medium shadow-theme-sm hover:bg-brand-600 transition" id="upgradeBtn">
+          <i data-lucide="crown" style="width:16px;height:16px;"></i>
+          <span class="hidden sm:inline">升级会员</span>
+        </button>
+
+        <!-- 用户菜单（TailAdmin 真实结构） -->
+        <div class="user-menu flex items-center gap-3 pl-2 cursor-pointer" id="userAvatar" title="用户中心">
+          <div class="w-9 h-9 rounded-full bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center text-white text-sm font-semibold shadow-theme-sm">U</div>
+          <div class="hidden lg:flex flex-col leading-tight">
+            <span class="text-sm font-medium text-gray-800">用户</span>
+            <span class="text-xs text-gray-500">免费版</span>
+          </div>
+          <i data-lucide="chevron-down" class="hidden lg:block text-gray-400" style="width:16px;height:16px;"></i>
+        </div>
+      </div>
+    </header>
+
+    <!-- ===== 主内容区 ===== -->
+    <main class="main-content p-4 md:p-6 mx-auto w-full max-w-[1536px]" id="mainContent">
+      <div class="page-container" id="pageContainer">
+        <!-- 页面内容由 JS 动态渲染 -->
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- Toast 容器 -->
+<div class="toast-container fixed top-20 right-4 z-[9999] flex flex-col gap-2" id="toastContainer"></div>
+
+<!-- JavaScript 文件（按依赖顺序） -->
+<script src="js/api.js"></script>
+<script src="js/store.js"></script>
+<script src="js/router.js"></script>
+<!-- 组件模块 -->
+<script src="js/components/header.js"></script>
+<script src="js/components/sidebar.js"></script>
+<script src="js/components/card.js"></script>
+<script src="js/components/notice-list.js"></script>
+<script src="js/components/modal.js"></script>
+<!-- 服务模块 -->
+<script src="js/services/product-mapping.js"></script>
+<!-- 页面逻辑 -->
+<script src="js/pages/home.js"></script>
+<script src="js/pages/collect.js"></script>
+<script src="js/pages/ai-write.js"></script>
+<script src="js/pages/publish.js"></script>
+<script src="js/pages/store.js"></script>
+<script src="js/pages/online-products.js"></script>
+<script src="js/pages/model.js"></script>
+<script src="js/pages/calculator.js"></script>
+<!-- 应用入口 -->
+<script src="js/app.js"></script>
+
+</body>
+</html>

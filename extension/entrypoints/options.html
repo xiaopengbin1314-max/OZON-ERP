@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>GeekOzon 设置</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: Inter, system-ui, -apple-system, sans-serif;
+      background: #f9fafb; color: #1f2937; padding: 24px; max-width: 720px; margin: 0 auto;
+    }
+    h1 { font-size: 20px; margin-bottom: 20px; }
+    h2 { font-size: 14px; margin: 20px 0 10px; padding-bottom: 6px; border-bottom: 1px solid #e5e7eb; }
+    .form-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+    .form-row label { width: 160px; font-size: 13px; color: #6b7280; }
+    .form-row input, .form-row select {
+      flex: 1; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 6px;
+      font-size: 13px; font-family: inherit; outline: none;
+    }
+    .form-row input:focus { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.18); }
+    .actions { margin-top: 20px; display: flex; gap: 10px; }
+    .btn { padding: 8px 16px; border-radius: 8px; font-size: 13px; cursor: pointer; font-family: inherit; border: 1px solid transparent; }
+    .btn-primary { background: #6366f1; color: #fff; }
+    .btn-primary:hover { background: #4f46e5; }
+    .btn-secondary { background: #fff; color: #374151; border: 1px solid #d1d5db; }
+    .toast { position: fixed; top: 20px; right: 20px; padding: 10px 16px; border-radius: 8px; font-size: 13px; color: #fff; opacity: 0; transition: opacity 0.3s; }
+    .toast.show { opacity: 1; }
+    .toast.success { background: #00b050; }
+    .toast.error { background: #ff4d4f; }
+    .hint { font-size: 11px; color: #9ca3af; margin-top: -6px; margin-bottom: 10px; margin-left: 172px; }
+  </style>
+</head>
+<body>
+  <h1>GeekOzon 设置</h1>
+
+  <h2>连接配置</h2>
+  <div class="form-row">
+    <label>API 基础地址</label>
+    <input type="text" id="apiBaseUrl" placeholder="http://localhost:5000">
+  </div>
+  <div class="hint">GeekOzon 后端服务地址，默认 http://localhost:5000</div>
+
+  <div class="form-row">
+    <label>黑标价系数</label>
+    <input type="number" id="blackPriceRatio" step="0.01" min="0.5" max="1" placeholder="0.95">
+  </div>
+  <div class="hint">黑标价 = 跟卖最低价 × 此系数，默认 0.95</div>
+
+  <h2>定价参数</h2>
+  <div class="form-row"><label>汇率 CNY→RUB</label><input type="number" id="exchangeRate" step="0.01" placeholder="12.5"></div>
+  <div class="form-row"><label>利润系数</label><input type="number" id="profitMargin" step="0.01" placeholder="1.3"></div>
+  <div class="form-row"><label>划线价系数</label><input type="number" id="oldPriceRatio" step="0.01" placeholder="1.2"></div>
+  <div class="form-row"><label>默认币种</label>
+    <select id="defaultCurrency">
+      <option value="CNY">人民币 CNY</option>
+      <option value="RUB">卢布 RUB</option>
+    </select>
+  </div>
+
+  <h2>物流与损耗</h2>
+  <div class="form-row"><label>FBO 运费(RUB/kg)</label><input type="number" id="shippingRate" step="1" placeholder="80"></div>
+  <div class="form-row"><label>体积重系数</label><input type="number" id="volumetricDivisor" step="100" placeholder="5000"></div>
+  <div class="form-row"><label>退货率</label><input type="number" id="returnRate" step="0.01" min="0" max="1" placeholder="0"></div>
+  <div class="form-row"><label>损耗率</label><input type="number" id="lossRate" step="0.01" min="0" max="1" placeholder="0"></div>
+  <div class="form-row"><label>包装费(RUB)</label><input type="number" id="packagingFee" step="1" placeholder="0"></div>
+
+  <div class="actions">
+    <button class="btn btn-primary" id="btnSave">保存设置</button>
+    <button class="btn btn-secondary" id="btnTest">测试连接</button>
+    <button class="btn btn-secondary" id="btnReset">重置默认</button>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="../core/namespace.js"></script>
+  <script src="../core/config.js"></script>
+  <script src="../core/api-client.js"></script>
+  <script src="../core/chrome-storage.js"></script>
+  <script src="options.js"></script>
+</body>
+</html>

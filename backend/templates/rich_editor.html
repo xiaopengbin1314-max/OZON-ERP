@@ -1,0 +1,2101 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rich Content Editor</title>
+<!-- 官方 main.css（提供 RA-*, _4-a, _28-a, _44-a 等所有官方样式） -->
+<link rel="stylesheet" href="/api/rich_content/static/main.css">
+<style>
+  /* ===== Ozon 官方设计语言 ===== */
+  :root {
+    --oz-primary: #005bff;
+    --oz-primary-hover: #0050e0;
+    --oz-primary-light: rgba(0, 150, 255, .08);
+    --oz-primary-light-hover: rgba(0, 150, 255, .12);
+    --oz-dark: #001a34;
+    --oz-dark-2: #0d2740;
+    --oz-text: #001a34;
+    --oz-text-secondary: #707f8d;
+    --oz-text-muted: #96a3ae;
+    --oz-bg: #fff;
+    --oz-bg-light: #f2f5f9;
+    --oz-bg-hover: #e2e7ec;
+    --oz-border: rgba(204, 214, 228, .6);
+    --oz-border-strong: #ccd6e4;
+    --oz-danger: #f91155;
+    --oz-success: #10c44c;
+    --oz-radius-sm: 6px;
+    --oz-radius: 8px;
+    --oz-radius-lg: 12px;
+    /* 官方变量 */
+    --ra-left-col: 292px;
+    --ra-left-col-padding: 24px;
+    --ra-left-col-content: 244px;
+    --oz-font: GTEestiPro, "Inter", system-ui, -apple-system, "Segoe UI", Roboto, arial, sans-serif;
+    --oz-mono: "Cascadia Code", "Fira Code", Consolas, "Courier New", monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; overflow: hidden; font-family: var(--oz-font); background: #d2d9df; letter-spacing: .2px; color: var(--oz-text); }
+
+  /* 补充官方高度链：让 .RA-a8 填满视口，使内部 height:100% 生效 */
+  .RA-a8 { min-height: 100vh; display: flex; flex-direction: column; }
+  .RA-a9 { flex: 1; min-height: 0; }
+  /* 隐藏顶部导航栏（编辑器嵌入模式不需要 Documentation/Sandbox/Visual Editor 切换 + Take training 按钮） */
+  .RA-b { display: none !important; }
+
+  /* ===== 左侧深色面板（官方 RA-f4） ===== */
+  .left-panel {
+    background: var(--oz-dark); color: #fff; flex-shrink: 0;
+    width: var(--ra-left-col); box-sizing: border-box; overflow: hidden;
+    display: flex; flex-direction: column;
+    padding: var(--ra-left-col-padding); position: sticky; top: 0;
+    max-height: 100vh; overflow-y: auto;
+  }
+  .left-panel::-webkit-scrollbar { width: 8px; }
+  .left-panel::-webkit-scrollbar-track { background: transparent; }
+  .left-panel::-webkit-scrollbar-thumb { background: rgba(255,255,255,.1); border-radius: 4px; }
+
+  /* Blocks 视图（官方 RA-f5 宽度 244px） */
+  #blocksView { width: var(--ra-left-col-content); overflow-y: auto; flex: 1; }
+  #blocksView.hidden { display: none; }
+  .panel-title { font-size: 24px; line-height: 30px; margin: 0 0 16px; color: #fff; font-weight: 700; }
+  /* 提示信息（官方 _28-a _28-b） */
+  .panel-hint {
+    background: #001a34; border-radius: 12px;
+    padding: 16px 24px 16px 16px; margin-bottom: 0;
+    display: flex; gap: 8px; align-items: flex-start;
+    font-size: 14px; line-height: 18px; color: #fff;
+    font-family: var(--oz-font);
+  }
+  .panel-hint svg { flex: 0 0 24px; height: 24px; width: 24px; margin-right: 8px; }
+  .panel-hint span { align-self: center; line-height: 18px; padding: 4px 0 2px; }
+
+  /* widget 模板卡片（官方 RA-x4 RA-q1，间距 24px） */
+  .widget-card {
+    display: flex; flex-flow: column nowrap; cursor: pointer;
+    padding: 0; border-radius: 0; margin-top: 24px;
+    background: transparent; border: none;
+    transition: opacity .15s;
+  }
+  .widget-card:first-of-type { margin-top: 0; }
+  .widget-card:hover { opacity: .8; }
+  .widget-card:active { opacity: .6; }
+  .widget-card .wc-img {
+    width: 100%; max-height: 100%; max-width: 100%; border-radius: 0;
+    display: block; background: #fff;
+  }
+  .widget-card .wc-title { font-size: 14px; line-height: 18px; color: #fff; font-weight: 400; margin-top: 8px; }
+
+  /* Settings 视图（对齐官方 WidgetsSettingsForm，复用 RA-f4 滚动容器，无独立 header） */
+  #settingsView { padding: 0; display: none; }
+  #settingsView.active { display: block; }
+  /* 返回按钮（对齐官方 OzButton theme:empty，裸 button 无背景边框） */
+  .RA-back-btn {
+    background: transparent; border: none; padding: 0; cursor: pointer;
+    font-family: var(--oz-font); color: inherit;
+  }
+  /* 官方 RA-o7：返回按钮内容（大写文字，灰色#5a6c7d，hover蓝#99bdff） */
+  .RA-o7 {
+    align-items: center; color: #5a6c7d; display: flex; flex-flow: row nowrap;
+    font-size: 14px; font-weight: 700; justify-content: flex-start;
+    line-height: 18px; text-transform: uppercase; transition: color .15s;
+  }
+  .RA-o7:hover { color: #99bdff; }
+  /* 官方 RA-o8：返回图标 margin-right:12px */
+  .RA-o8 { margin-right: 12px; }
+  /* 官方 RA-p6：标题 h3 margin:36px 0 20px（已在 main.css，此处补充深色主题颜色） */
+  .RA-p6 { color: #fff; }
+  /* 表单容器（对齐官方 <form>，无 padding，由 RA-f4 提供 padding:24px） */
+  .settings-form { padding: 0; }
+
+  /* ===== 对齐官方 OzField + WidgetsSettingsForm.field（RA-p） ===== */
+  /* 官方 RA-p：.RA-p+.RA-p{margin-top:20px} 相邻兄弟选择器，仅相邻 field 间有间距 */
+  .settings-form ._22-a + ._22-a { margin-top: 20px; }
+  /* 官方 RA-u1(FieldLabel)：display:flex; color:#96a3ae; align-items:center。文本 div 无 class，需继承字号 */
+  .settings-form .RA-u1 { font-size: 14px; line-height: 18px; }
+  /* 官方 RA-p4：控件容器 margin-top:8px, max-width:244px */
+  .settings-form .RA-p4 { margin-top: 8px; max-width: var(--ra-left-col-content); }
+  /* _22-a2 错误信息保持官方颜色 #f91155 */
+
+  /* ===== 对齐官方 OzCheckbox（_6-a 系列，theme="toggle"） ===== */
+  /* 官方 _6-a(root):inline-flex;align-items:center;cursor:pointer */
+  /* 官方 _6-a2(input):clip 隐藏；_6-a4(control):toggle 时 36x20 圆角 + :before 是 thumb */
+  /* 官方 _6-a5 _6-a7(checked) _6-a4:background:#005bff; _6-a4:before:transform:translateX(100%) */
+  /* 官方 _6-a0(description) 颜色与 FieldLabel 一致：#96a3ae */
+  .settings-form ._6-a0 { color: #96a3ae; }
+
+  /* input/select/textarea 控件样式 */
+  /* form-input: 在官方 _46-a 容器内，背景/边框/圆角由 _46-a 提供（白色背景+灰色边框），不覆盖 */
+  .form-input {
+    outline: none;
+  }
+  /* form-textarea/form-select: 独立使用（无 _46-a 容器），需要自定义深色主题样式 */
+  .form-textarea, .form-select {
+    width: 100%; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12);
+    color: #fff; padding: 5px 10px; border-radius: var(--oz-radius); font-family: var(--oz-font);
+    font-size: 14px; line-height: 18px; transition: border-color .15s, background .15s; outline: none;
+  }
+  .form-textarea:focus, .form-select:focus {
+    border-color: var(--oz-primary); background: rgba(0, 91, 255, .08);
+  }
+  .form-textarea { resize: vertical; min-height: 60px; line-height: 1.5; }
+  .form-select { cursor: pointer; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23c2d1e0' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; padding-right: 32px; }
+  .form-select option { background: var(--oz-dark); color: #fff; }
+  .form-row { display: flex; gap: 8px; }
+  .form-row ._22-a { flex: 1; margin-bottom: 0; }
+  .form-hint { font-size: 11px; color: var(--oz-text-muted); margin-top: 4px; }
+  /* OzInput 占位符 p._46-a0：input 为空时显示，有值时隐藏（对齐官方行为） */
+  .settings-form ._46-b0 { position: relative; }
+  .settings-form p._46-a0 {
+    position: absolute; top: 5px; left: 10px;
+    color: var(--oz-text-muted);
+    font-size: 14px; line-height: 18px; pointer-events: none;
+    margin: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+  }
+  .settings-form .form-input:not(:placeholder-shown) ~ p._46-a0 { display: none; }
+  /* OzSelect 自定义下拉样式（对齐官方 OzSelect 下拉行为） */
+  .settings-form .oz-select { position: relative; }
+  .settings-form .oz-select-dropdown {
+    position: absolute; top: 100%; left: 0; right: 0;
+    background: var(--oz-dark-2); border: 1px solid var(--oz-border-strong);
+    border-radius: var(--oz-radius); margin-top: 4px; z-index: 100;
+    max-height: 240px; overflow-y: auto; padding: 4px 0;
+    box-shadow: 0 4px 12px rgba(0,0,0,.3);
+  }
+  .settings-form .oz-select-option {
+    padding: 8px 10px; cursor: pointer; color: #fff;
+    font-size: 14px; line-height: 18px; transition: background .15s;
+  }
+  .settings-form .oz-select-option:hover { background: rgba(0, 91, 255, .12); }
+  .settings-form .oz-select-option[aria-selected="true"] { color: var(--oz-primary); font-weight: 500; }
+  /* OzSelect combobox（_38-b0）：透明覆盖在 listbox 上方，保持 DOM 结构对齐，简化实现中无搜索功能 */
+  .settings-form .oz-select ._38-b0 {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    background: transparent; border: none; color: inherit;
+    cursor: pointer; outline: none; padding: 5px 10px;
+    font-size: 14px; font-family: var(--oz-font);
+  }
+  /* OzSelect listbox 显示选中值，需要可点击 */
+  .settings-form .oz-select ._38-a0 { cursor: pointer; }
+  /* 分节标题已对齐官方 VisualEditorHeading（RA-t1/RA-t7/RA-t9），无需自定义 .section-separator */
+
+  /* block 折叠面板（对齐官方 fieldset.RA-o9 + legend div.RA-p0 subHead） */
+  /* 注意：不在此处设置 margin，由官方 RA-o9 提供 border:0; padding:0; margin-top:36px */
+  .block-panel {
+    background: transparent;
+  }
+  /* 官方 RA-p0：subHead flex, font:16px/20px, margin:0 0 8px；注意不用 justify-content:space-between，RA-p3 的 margin-left:auto 会推到右侧 */
+  .block-panel-header {
+    padding: 0; background: transparent; cursor: pointer;
+    display: flex; align-items: center;
+    font-size: 16px; line-height: 20px; color: #fff; font-weight: 500;
+    margin: 0 0 8px;
+  }
+  .block-panel-header:hover { background: transparent; }
+  /* 官方 chevron icon 展开旋转（_4-d6 + rotate 270deg 为收起态，展开时 rotate 90deg） */
+  .block-panel-body { padding: 0; display: none; }
+  .block-panel-body.expanded { display: block; }
+  .block-panel-header .chevron { transition: transform .2s; }
+  .block-panel-header.expanded .chevron { transform: rotate(90deg); }
+  /* 高亮选中的 block（对齐官方 RA-p7.RA-p8 active 高亮） */
+  .block-panel-highlight {
+    position: relative;
+  }
+  .block-panel-highlight::after {
+    content: ""; position: absolute; left: -8px; right: -8px; top: -8px; bottom: -8px;
+    background-color: rgba(204,214,228,.6); border-radius: 6px; opacity: .3;
+    pointer-events: none; z-index: -1;
+  }
+  /* 预览区域中选中的 block 高亮 */
+  .canvas-item [data-block-idx].block-active {
+    outline: 2px solid var(--oz-primary);
+    outline-offset: 2px;
+  }
+  /* 平台切换器（Display: Desktop/Mobile）—— 补充官方 RA-a5a 样式 */
+  /* 官方 RA-a5a: margin-bottom:20px（与后续 RA-o9 间距） */
+  .RA-a5a { margin-bottom: 20px; }
+  /* 官方 RA-aa6: 标签文字，颜色与 FieldLabel 一致（#96a3ae） */
+  .RA-aa6 { color: #96a3ae; font-size: 14px; line-height: 18px; margin-bottom: 8px; }
+  /* 官方 RA-aa7: 按钮组容器，display:flex;gap:8px */
+  .RA-aa7 { display: flex; gap: 8px; }
+  /* 官方 RA-aa8: 单个图标按钮，cursor:pointer;opacity:.6;transition:opacity .15s */
+  .RA-aa8 { cursor: pointer; opacity: .6; transition: opacity .15s; }
+  .RA-aa8:hover { opacity: .8; }
+  .RA-aa8:active { opacity: .5; }
+  /* 官方 RA-a8a: 激活态，opacity:1;cursor:default（选中后不可点击） */
+  .RA-a8a { opacity: 1; cursor: default; }
+  /* 官方 RA-a7a: 图标尺寸（24x24） */
+  .RA-a7a { width: 24px; height: 24px; }
+
+  /* 开关：使用官方 OzCheckbox toggle 主题（_6-a 系列），无需自定义样式 */
+
+  /* 添加 block 按钮：使用官方 OzButton secondary（_4-a/_4-a1/_4-a3 _4-b）+ RA-p5 间距，无需自定义样式 */
+
+  /* ===== 右侧主区域（官方 RA-f6：flex-grow:1; height:100%; min-height:400px; padding:17px 64px 0 16px） ===== */
+  /* 补充官方 RA-f6 缺失的 flex 布局（官方 CSS 只有 flex-grow/height，无 display:flex） */
+  /* overflow-y:auto 让画布区域可滚动；overflow 裁剪 content box，RA-q5 按钮（right:-40px）在 padding 区域内不被裁剪 */
+  .RA-f6 { display: flex; flex-direction: column; overflow-y: auto; }
+
+  /* 工具栏（官方 RA-f8：display:flex;justify-content:flex-start;margin-top:20px;position:relative;z-index:1） */
+  /* 不添加 gap/align-items/flex-wrap，官方通过子元素 margin（RA-g margin-right:auto, RA-f9 margin-left:auto）控制间距 */
+  .toolbar {
+    display: flex; justify-content: flex-start; margin-top: 20px;
+    position: relative; z-index: 1;
+  }
+
+  /* 画布区域（官方 RA-g0：margin:48px auto 0; min-height:500px; outline:2px dotted #d2d9df; padding:1px; width:100%） */
+  /* 官方 RA-g4 .RA-g0 { width:375px } 限制画布宽度为手机预览宽度 */
+  /* 不在 canvas 上设置 overflow，让 RA-q5 按钮（right:-40px）能溢出到 RA-f6 的 padding 区域显示 */
+  .RA-f6::-webkit-scrollbar { width: 8px; }
+  .RA-f6::-webkit-scrollbar-track { background: var(--oz-bg-light); }
+  .RA-f6::-webkit-scrollbar-thumb { background: var(--oz-border-strong); border-radius: 4px; }
+
+  /* 官方颜色选择器（OzonColorPicker）—— RA-q9.RA-p4 > .RA-r.RA-m{3,4,5,6}[.RA-r0?] × 4 */
+  /* 官方 RA-q9: flex布局 */
+  .RA-q9 { display: flex; gap: 8px; }
+  /* 官方 RA-r（main.css）: border:1px solid #3d5165; border-radius:6px; box-sizing:border-box; cursor:pointer; height:32px; margin-left:8px; width:32px */
+  .RA-r { width: 32px; height: 32px; border: 1px solid #3d5165; border-radius: 6px; box-sizing: border-box; cursor: pointer; transition: border-color .15s; }
+  /* 官方选中态 RA-r0（main.css）: border-color:#99bdff（保持 1px 宽度，变浅蓝边框） */
+  .RA-r.RA-r0 { border-color: #99bdff; }
+  /* 官方颜色类（main.css）: RA-m3{bg:#001a34} RA-m4{bg:#3d5165} RA-m5{bg:#808d9a} RA-m6{bg:#fff} */
+  .RA-m3 { background-color: #001a34; }
+  .RA-m4 { background-color: #3d5165; }
+  .RA-m5 { background-color: #808d9a; }
+  .RA-m6 { background-color: #fff; }
+  /* 官方文本对齐按钮组（OzonAlignPicker）—— RA-r1.RA-p4 > .RA-r2[_4-a][.RA-r3?] × 3 */
+  /* 官方 RA-r1（main.css）: display:flex; margin-left:-8px */
+  .RA-r1 { display: flex; gap: 8px; }
+  /* 官方 RA-r2（main.css）: border-radius:6px; box-sizing:border-box; cursor:pointer; height:40px; margin-left:8px; width:40px */
+  .RA-r2 { width: 40px; height: 40px; border-radius: 6px; box-sizing: border-box; cursor: pointer; margin-left: 8px; }
+  /* 官方选中态/悬停态 RA-r3（main.css）: color:#99bdff（图标变浅蓝色，非边框高亮） */
+  .RA-r3, .RA-r1 .RA-r2:hover { color: #99bdff; }
+  /* 官方 NEW badge（_3-a._3-a0._3-a3.RA-u5）—— background:rgb(255,184,0);color:rgb(0,26,52);border-radius:4px;padding:2px 6px */
+  ._3-a._3-a0._3-a3.RA-u5 { background-color: rgb(255, 184, 0); color: rgb(0, 26, 52); border-radius: 4px; padding: 2px 6px; font-size: 12px; line-height: 16px; font-weight: 500; margin-left: 8px; }
+  ._3-a5 { display: inline-block; }
+
+  /* 画布中的 widget 项（官方 RA-q2：border:2px solid transparent; margin:-1px; min-height:156px） */
+  .canvas-item {
+    position: relative; margin: -1px; min-height: 156px;
+    border: 2px solid transparent; border-radius: 0;
+    cursor: pointer; transition: border-color .15s;
+  }
+  .canvas-item + .canvas-item { margin-top: 48px; }
+  .canvas-item:hover { border-color: rgba(153, 189, 255, .3); }
+  .canvas-item.selected { border-color: #99bdff; }
+
+  /* 拖拽悬停高亮（canvas 元素 id="canvas"，无 canvas 类，用 #canvas 选择器） */
+  #canvas.drag-over {
+    outline: 2px dashed var(--oz-primary);
+    outline-offset: -2px;
+    background: var(--oz-primary-light);
+  }
+  /* silhouette 占位符（官方 Silhouette 组件） */
+  .silhouette {
+    min-height: 156px; border: 2px dashed var(--oz-primary);
+    background: var(--oz-primary-light); border-radius: 8px; margin: -1px;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--oz-primary); font-size: 14px; font-weight: 500;
+  }
+
+  /* ===== 预览渲染样式（对齐官方 main.css） ===== */
+  /* ra-main：billboard（大图广告，roll 已改用官方 RA-v9 系列类） */
+  .ra-main { font-family: var(--oz-font); margin: 48px 0; }
+  .ra-main__img-wrapper { margin-bottom: 24px; overflow: hidden; padding-top: 50%; position: relative; width: 100%; }
+  .ra-main__img { height: auto; left: 0; max-width: 100%; object-fit: cover; position: absolute; top: 0; width: 100%; }
+  /* 官方 borderRadiusType (Oo) + borderRadius (lo) */
+  .ra-br-all { border-radius: 8px; }
+  .ra-br-top { border-radius: 8px 8px 0 0; }
+  .ra-br-bottom { border-radius: 0 0 8px 8px; }
+  .ra-br-none { border-radius: 0; }
+  .ra-radius-l { border-radius: 8px; }
+  .ra-radius-m { border-radius: 6px; }
+  .ra-br-all.ra-radius-l { border-radius: 8px; }
+  .ra-br-all.ra-radius-m { border-radius: 6px; }
+  .ra-br-top.ra-radius-l { border-radius: 8px 8px 0 0; }
+  .ra-br-top.ra-radius-m { border-radius: 6px 6px 0 0; }
+  .ra-br-bottom.ra-radius-l { border-radius: 0 0 8px 8px; }
+  .ra-br-bottom.ra-radius-m { border-radius: 0 0 6px 6px; }
+  .ra-main__title { color: #001a34; font-family: var(--oz-font); font-size: 38px; font-weight: 700; line-height: 46px; margin-bottom: 16px; }
+  .ra-main__text { color: #001a34; font-family: var(--oz-font); font-size: 16px; line-height: 20px; }
+  .ra-main__text_gray { color: #3d5165; }
+
+  /* ra-chess：chess（图文左右排列） */
+  .ra-chess .ra-chess__advantage { align-items: center; display: flex; justify-content: space-between; margin: 48px 0; }
+  .ra-chess__advantage_reverse { flex-direction: row-reverse; }
+  .ra-chess__img-wrapper { flex: 0 0 calc(50% - 12px); padding-top: calc(50% - 12px); position: relative; }
+  .ra-chess__img { height: auto; left: 0; max-width: 100%; object-fit: cover; position: absolute; top: 0; width: 100%; }
+  .ra-chess__description { flex: 0 0 calc(50% - 12px); }
+  /* 自定义 baseClass 仅保留 font-family/font-weight/margin 等布局属性 */
+  /* color/font-size/line-height 由官方 RA-m*/RA-l* 类控制，避免覆盖用户选择的样式 */
+  .ra-chess__title { font-family: var(--oz-font); font-weight: 700; margin-bottom: 16px; }
+  .ra-chess__text { font-family: var(--oz-font); }
+  .ra-chess__text_gray { color: #3d5165; }
+
+  /* ra-triple：tileL（三列图） */
+  .ra-triple { display: flex; justify-content: space-between; margin: 48px 0; }
+  .ra-triple__advantage { flex: 0 0 calc(33.33333% - 10.66667px); }
+  .ra-triple__img-wrapper { margin-bottom: 16px; padding-top: 100%; position: relative; }
+  .ra-triple__img { height: auto; left: 0; max-width: 100%; object-fit: cover; position: absolute; top: 0; width: 100%; }
+  .ra-triple__subtitle { font-family: var(--oz-font); font-weight: 700; margin-bottom: 8px; }
+  .ra-triple__text { font-family: var(--oz-font); }
+  .ra-triple__text_gray { color: #3d5165; }
+
+  /* ra-multiple：tileXL / tileM（多列图） */
+  .ra-multiple { display: flex; margin: 48px 0; }
+  .ra-multiple__advantage { flex: 1 1 25%; margin-right: 16px; }
+  .ra-multiple__advantage:last-child { margin-right: 0; }
+  .ra-multiple__img-wrapper { margin-bottom: 16px; padding-top: 100%; position: relative; }
+  .ra-multiple__img { height: auto; left: 0; max-width: 100%; object-fit: cover; position: absolute; top: 0; width: 100%; }
+  .ra-multiple__subtitle { font-family: var(--oz-font); font-weight: 700; margin-bottom: 8px; }
+  .ra-multiple__text { font-family: var(--oz-font); }
+  .ra-multiple__text_gray { color: #3d5165; }
+
+  /* ra-icons：tileSecondary（图标列） */
+  .ra-icons { display: flex; margin: 48px 0; }
+  .ra-icons__advantage { background: #eff3f6; flex: 1 1 100%; margin-right: 16px; padding: 24px 16px; text-align: center; }
+  .ra-icons__advantage:last-child { margin-right: 0; }
+  .ra-icons__img { margin-bottom: 16px; max-height: 50px; max-width: 50px; width: auto; }
+  .ra-icons__title { font-family: var(--oz-font); font-weight: 700; }
+  .ra-icons__text-grey { font-family: var(--oz-font); }
+
+  /* ra-video：视频 */
+  .ra-video { font-family: var(--oz-font); margin: 48px 0; }
+  .ra-video__wrapper { overflow: hidden; padding-top: 56.25%; position: relative; width: 100%; }
+  .ra-video__frame { height: 100%; left: 0; max-width: 100%; object-fit: cover; position: absolute; top: 0; width: 100%; }
+
+  /* ra-table：表格 */
+  .ra-table { border-collapse: collapse; font-family: var(--oz-font); margin: 48px 0; width: 100%; }
+  .ra-table__subtitle { font-family: var(--oz-font); font-weight: 700; margin-bottom: 16px; }
+  .ra-table__wrapper { font-family: var(--oz-font); overflow: auto; }
+  .ra-table th { background-color: #e5efff; font-size: 14px; line-height: 18px; padding: 12px 8px; text-align: left; vertical-align: middle; }
+  .ra-table th:first-child { padding-left: 12px; }
+  .ra-table th:last-child { padding-right: 12px; }
+  .ra-table tr:nth-child(odd) { background-color: #fff; }
+  .ra-table td { padding: 12px 8px; vertical-align: middle; }
+
+  /* raTextBlock：纯文本块 */
+  .ra-text-block { margin: 48px 0; }
+  .ra-text-block__title { font-family: var(--oz-font); font-weight: 700; margin-bottom: 16px; }
+  .ra-text-block__text { font-family: var(--oz-font); }
+
+  /* list：列表 */
+  .ra-list { margin: 48px 0; }
+  .ra-list__item { margin-bottom: 16px; }
+  .ra-list__item-title { color: #001a34; font-family: var(--oz-font); font-size: 20px; font-weight: 700; line-height: 26px; margin-bottom: 8px; }
+  .ra-list__item-text { font-family: var(--oz-font); }
+
+  /* 文本样式由官方 RA-l3-l9(font-size)/RA-m-m2(color)/RA-m7-m9(align) 类控制，无需自定义 sizeN/colorN/align-* 类 */
+
+  /* 预览模态框（官方 Предпросмотр） */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0, 26, 52, .6); z-index: 100;
+    display: none; align-items: center; justify-content: center;
+  }
+  .modal-overlay.active { display: flex; }
+  .modal {
+    background: #fff; border-radius: var(--oz-radius-lg); width: 80%; max-width: 900px;
+    max-height: 85vh; display: flex; flex-direction: column; overflow: hidden;
+  }
+  .modal-header {
+    padding: 16px 20px; border-bottom: 1px solid var(--oz-border);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .modal-title { font-size: 16px; font-weight: 600; }
+  .modal-close { background: transparent; border: none; cursor: pointer; padding: 4px; border-radius: 4px; }
+  .modal-close:hover { background: var(--oz-bg-light); }
+  .modal-close svg { width: 20px; height: 20px; }
+  .modal-body { flex: 1; overflow: auto; padding: 24px; }
+  .modal-footer {
+    padding: 12px 20px; border-top: 1px solid var(--oz-border);
+    display: flex; justify-content: flex-end; gap: 8px;
+  }
+  /* 工具栏按钮禁用状态（官方 isSaveButtonDisabled） */
+  .toolbar button[disabled] { opacity: .4; cursor: not-allowed; pointer-events: none; }
+</style>
+</head>
+<body>
+<!-- ===== 官方 DOM 结构（RA-a8 → RA-b + RA-a9 → RA-d8 → RA-f4 + RA-f6） ===== -->
+<div class="RA-a8">
+  <!-- 顶部导航栏（RA-b: Tab 区 + RA-b0: 操作区） -->
+  <div class="RA-b">
+    <div>
+      <div class="_44-a">
+        <div><div class="_4-a"><button tabindex="0" type="button" class="_4-a1" style="border-radius:0px;"><span class="_4-a3 _4-d4 _4-d8" style="border-radius:0px;"><div class="_44-a5"><span>Documentation</span></div></span></button></div></div>
+        <div><div class="_4-a"><button tabindex="0" type="button" class="_4-a1" style="border-radius:0px;"><span class="_4-a3 _4-d4 _4-d8" style="border-radius:0px;"><div class="_44-a5"><span>Sandbox</span></div></span></button></div></div>
+        <div><div class="_4-a"><button tabindex="0" type="button" class="_4-a1" style="border-radius:0px;"><span class="_4-a3 _4-d3 _4-d8" style="border-radius:0px;"><div class="_44-a5"><span>Visual Editor</span></div></span></button></div></div>
+      </div>
+    </div>
+    <div class="RA-b0">
+      <div class="RA-b1 _4-a">
+        <button tabindex="0" type="button" class="_4-a1" style="border-radius:8px;">
+          <span class="_4-a3 _4-b _4-d1 _4-a4" style="border-radius:8px;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" class="_4-d6"><path fill="currentColor" d="M2 8.5C2 6.813 9.5 4 12 4c2.1 0 7.729 1.985 9.476 3.62A1 1 0 0 1 22 8.5V12a1 1 0 1 1-2 0v-1.604C17.596 11.737 13.675 13 12 13 9.5 13 2 10.188 2 8.5"></path><path fill="currentColor" d="M12 19c-5.568 0-7-1-7-6 0-.562.493-.764.993-.562 1.038.418 2.127.787 3.121 1.06 1.076.296 2.12.502 2.886.502.765 0 1.81-.206 2.886-.502a29 29 0 0 0 3.12-1.06c.501-.202.994 0 .994.562 0 5-1.432 6-7 6m9-3a1 1 0 1 0 0-2 1 1 0 0 0 0 2"></path></svg>
+            <span class="_4-e0">Take training</span>
+          </span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 主内容区（RA-a9 → RA-d8: flex 行 = 左面板 + 右区域） -->
+  <div class="RA-a9">
+    <div class="RA-d8">
+      <!-- 左侧深色面板（RA-f4） -->
+      <div class="RA-f4" id="leftPanel" style="max-height:100vh;">
+        <!-- Blocks 视图（RA-q RA-f5） -->
+        <div class="RA-q RA-f5" id="blocksView">
+          <h3 class="RA-q0">Блоки</h3>
+          <div class="_28-a _28-b">
+            <div class="_28-a1">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" class="_28-a3" style="color: rgb(16, 173, 68);"><path fill="currentColor" d="M13 12a1 1 0 1 0-2 0v4a1 1 0 1 0 2 0zm-1-5a1 1 0 1 1 0 2 1 1 0 0 1 0-2"></path><path fill="currentColor" d="M1 12C1 5.925 5.925 1 12 1s11 4.925 11 11-4.925 11-11 11S1 18.075 1 12m11-9a9 9 0 1 0 0 18 9 9 0 0 0 0-18"></path></svg>
+              <div class="_28-a4"><div>Перетащите блок на страницу рич-контента, зажав левую кнопку мыши</div></div>
+            </div>
+          </div>
+          <div class="widget-list" id="widgetList"></div>
+        </div>
+        <!-- Settings 视图（属性表单，对齐官方 WidgetsSettingsForm 结构） -->
+        <div class="RA-q RA-f5" id="settingsView">
+          <!-- 返回按钮（对齐官方 OzButton theme:empty：div._4-a > button._4-a1 > span._4-a3._4-c6._4-d8 > div.RA-o7 > svg.RA-o8 + 文字） -->
+          <div class="_4-a">
+            <button class="RA-back-btn _4-a1" id="backBtn" type="button" style="border-radius:8px;">
+              <span class="_4-a3 _4-c6 _4-d8" style="border-radius:8px;">
+                <div class="RA-o7">
+                  <svg class="RA-o8" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M5.415 11H21a1 1 0 1 1 0 2H5.413l6.294 6.293a1 1 0 1 1-1.414 1.414l-8-7.999a1 1 0 0 1 0-1.414l8-8.001a1 1 0 1 1 1.414 1.414z"/></svg>
+                  Back
+                </div>
+              </span>
+            </button>
+          </div>
+          <!-- widget 类型标题（对齐官方 h3.RA-p6） -->
+          <h3 class="RA-p6" id="settingsTitle">Настройки виджета</h3>
+          <!-- 表单（对齐官方 <form onsubmit=preventDefault>） -->
+          <form class="settings-form" id="settingsForm" onsubmit="event.preventDefault()"></form>
+        </div>
+      </div>
+
+      <!-- 右侧主区域（RA-f6 RA-g4） -->
+      <div class="RA-f6 RA-g4">
+        <h3 class="RA-f7">Конструктор Rich-контента</h3>
+        <div class="RA-f8">
+          <div class="_29-a">
+            <div class="RA-g _4-a"><button tabindex="0" class="_4-a1" data-act="copy" type="button" style="border-radius:8px;"><span class="_4-a3 _4-b _4-d1" style="border-radius:8px;"><span class="_4-e0">Скопировать JSON</span></span></button></div>
+          </div>
+          <div class="RA-f9 _4-a"><button tabindex="0" class="_4-a1" data-act="export" type="button" style="border-radius:8px;"><span class="_4-a3 _4-b _4-d1" style="border-radius:8px;"><span class="_4-e0">Предпросмотр</span></span></button></div>
+          <div class="_4-a"><button tabindex="0" class="_4-a1" data-act="download" type="button" style="border-radius:8px;"><span class="_4-a3 _4-d1" style="border-radius:8px;"><span class="_4-e0">Скачать</span></span></button></div>
+        </div>
+        <div class="RA-g0" id="canvas"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 预览模态框（官方 Предпросмотр） -->
+<div class="modal-overlay" id="previewModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modalTitle">Rich content preview</div>
+      <button class="modal-close" id="modalClose" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body" id="previewBody"></div>
+    <div class="modal-footer">
+      <div class="_4-a" id="modalClose2"><button class="_4-a1" type="button" style="border-radius:8px;"><span class="_4-a3 _4-b _4-d1" style="border-radius:8px;"><span class="_4-e0">Close</span></span></button></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  const log = (...args) => console.log("[RichEditor]", ...args);
+
+  // ===== 状态管理 =====
+  const state = {
+    content: [],
+    version: 0.3,
+    selectedIndex: -1,
+    selectedBlock: -1,
+    platform: 'mobile'
+  };
+
+  // ===== DOM 引用 =====
+  const blocksView = document.getElementById('blocksView');
+  const settingsView = document.getElementById('settingsView');
+  const settingsForm = document.getElementById('settingsForm');
+  const settingsTitle = document.getElementById('settingsTitle');
+  const canvas = document.getElementById('canvas');
+  // 官方 CSS：.RA-g4 .RA-g0{width:375px} —— RA-g4 必须是 RA-g0 的祖先元素
+  // HTML 结构：div.RA-f6 > div.RA-g0#canvas，因此 RA-g4 加在 RA-f6（canvas.parentElement）上
+  const canvasWrap = canvas.parentElement;
+  const widgetList = document.getElementById('widgetList');
+
+  // ===== 常量 =====
+  const IMG = {
+    roll: "https://cdn1.ozone.ru/s3/rich-content/placeholder/1416x708.png",
+    billboard: "https://cdn1.ozone.ru/s3/rich-content/placeholder/1416x708.png",
+    chess: "https://cdn1.ozone.ru/s3/rich-content/placeholder/708x708_4.png",
+    tileXL: "https://cdn1.ozone.ru/s3/rich-content/placeholder/700x700.png",
+    tileL: "https://cdn1.ozone.ru/s3/rich-content/placeholder/440x440.png",
+    tileM: "https://cdn1.ozone.ru/s3/rich-content/placeholder/306x306.png",
+    tileSecondary: "https://cdn1.ozone.ru/s3/rich-content/placeholder/50x50_v2.png",
+    listImg: "https://cdn1.ozone.ru/s3/rich-content/placeholder/50x50_v2.png",
+    mobile: "https://cdn1.ozone.ru/s3/rich-content/placeholder/640x640.png",
+    mobileSmall: "https://cdn1.ozone.ru/s3/rich-content/placeholder/40x40_v2.png",
+    table: "https://cdn1.ozone.ru/s3/rich-content/placeholder/96x96.png"
+  };
+  const TXT = "Пожалуйста, замените этот текст Вашим собственным. Просто кликните по тексту, чтобы добавить свой текст. Настройте стиль текста в левой колонке.";
+  const SIZES = [
+    { value: 'size1', label: 'Размер 1' },
+    { value: 'size2', label: 'Размер 2' },
+    { value: 'size3', label: 'Размер 3' },
+    { value: 'size4', label: 'Размер 4' },
+    { value: 'size5', label: 'Размер 5' },
+    { value: 'size6', label: 'Размер 6' },
+    { value: 'size7', label: 'Размер 7' }
+  ];
+  const COLORS = ["color1", "color2", "color3", "color4"];
+  const ALIGNS = ["left", "center", "right"];
+  // 官方 FieldLabel icon（对齐 main.js 中 icMDesktopFilled / icSInfoFilledCompact / icMElectronicsFilled）
+  const ICON_DESKTOP = 'M12 4c4.876 0 7.11 0 8.134 1.113C21 6.055 21 7.793 21 11s0 4.945-.866 5.887C19.11 18 16.876 18 12 18s-7.11 0-8.134-1.113C3 15.945 3 14.207 3 11s0-4.945.866-5.887C4.89 4 7.124 4 12 4m0 4a1 1 0 1 0 0-2 1 1 0 0 0 0 2M7 20a1 1 0 0 1 1-1h8a1 1 0 1 1 0 2H8a1 1 0 0 1-1-1';
+  const ICON_MOBILE = 'M6.002 8C6.002 3.002 7 3.002 11 3.002h2c4 0 5 0 5 4.998v1.229c0 2.092.002 5.706-.002 6.77C17.98 20.999 17 21 13 21h-2c-4 0-4.998-.001-4.998-5v-1.74C6 12.135 5.999 8.982 6.002 8M10 6a1 1 0 0 0 1 1h2a1 1 0 1 0 0-2h-2a1 1 0 0 0-1 1m2 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2';
+  const ICON_INFO = 'M8 14c3.723 0 6-2.277 6-6s-2.277-6-6-6-6 2.277-6 6 2.277 6 6 6M7 5a1 1 0 1 1 2 0 1 1 0 0 1-2 0m2 6a1 1 0 1 1-2 0V8a1 1 0 0 1 2 0z';
+  // 官方按钮 icon（对齐 main.js 中 chevron / plus）
+  const ICON_CHEVRON = 'M8.293 4.293a1 1 0 0 0 0 1.414L14.586 12l-6.293 6.293a1 1 0 1 0 1.414 1.414l7-7a1 1 0 0 0 0-1.414l-7-7a1 1 0 0 0-1.414 0';
+  const ICON_PLUS = 'M12 4a1 1 0 0 0-1 1v6H5a1 1 0 1 0 0 2h6v6a1 1 0 1 0 2 0v-6h6a1 1 0 1 0 0-2h-6V5a1 1 0 0 0-1-1';
+  // 官方位置选项：DYNAMIC 模式（roll/billboard）vs FIXED 模式（chess/tile*）
+  // iu(type)=FIXED for ro(type), DYNAMIC otherwise
+  const POSITIONS_DYNAMIC = [
+    { value: 'width_full', label: 'на всю ширину' },
+    { value: 'width_half', label: '1/2 ширины' },
+    { value: 'width_one_third', label: '1/3 ширины' },
+    { value: 'width_one_fourth', label: '1/4 ширины' }
+  ];
+  const POSITIONS_FIXED = [
+    { value: 'to_the_edge', label: 'по краям' },
+    { value: 'fill', label: 'заполнить' }
+  ];
+  // 根据类型返回位置选项（官方 iu(type) 逻辑）
+  function positionsFor(type) {
+    return TYPES_WITH_BACKGROUND.includes(type) ? POSITIONS_FIXED : POSITIONS_DYNAMIC;
+  }
+
+  function titleObj(text, size) { return { items: [{ type: "text", content: text || "Заголовок" }], size: size || "size4", align: "left", color: "color1" }; }
+  function textObj(text, size) { return { size: size || "size2", align: "left", color: "color1", items: [{ type: "text", content: text || TXT }] }; }
+  function imgObj(src, mobile, position) { return { src: src, srcMobile: mobile || IMG.mobile, alt: "", position: position || "to_the_edge", positionMobile: position || "to_the_edge" }; }
+
+  // ===== 模板定义（对齐官方 11 个 widget，顺序：roll→billboard→chess→chessReverse→tileXL→tileL→video→tileSecondary→textBlock→list→table） =====
+  const WIDGET_DEFS = [
+    { key: "roll", name: "Image without indents", widgetName: "raShowcase", sub: "raShowcase: roll · 横向滚动图片", img: "roll.png",
+      create: () => ({ widgetName: "raShowcase", type: "roll", blocks: [
+        { imgLink: "", img: imgObj(IMG.roll, IMG.mobile, "width_full") }
+      ]})
+    },
+    { key: "billboard", name: "Image with text", widgetName: "raShowcase", sub: "raShowcase: billboard · 大图广告牌", img: "billboard.png",
+      create: () => ({ widgetName: "raShowcase", type: "billboard", blocks: [
+        { imgLink: "", img: imgObj(IMG.billboard, IMG.mobile, "width_full"), title: titleObj("Заголовок", "size4"), text: textObj() }
+      ]})
+    },
+    { key: "chess", name: "Image and text on the right", widgetName: "raShowcase", sub: "raShowcase: chess · 图左文右", img: "chess.png",
+      create: () => ({ widgetName: "raShowcase", type: "chess", blocks: [
+        { img: imgObj(IMG.chess), imgLink: "", title: titleObj("Заголовок", "size4"), text: textObj(), reverse: false },
+        { img: imgObj(IMG.chess), imgLink: "", title: titleObj("Заголовок", "size4"), text: textObj(), reverse: true }
+      ]})
+    },
+    { key: "chessReverse", name: "Image and text on the left", widgetName: "raShowcase", sub: "raShowcase: chess(reverse) · 图右文左", img: "chess-reverse.png",
+      create: () => ({ widgetName: "raShowcase", type: "chess", blocks: [
+        { img: imgObj(IMG.chess), imgLink: "", title: titleObj("Заголовок", "size4"), text: textObj(), reverse: true },
+        { img: imgObj(IMG.chess), imgLink: "", title: titleObj("Заголовок", "size4"), text: textObj(), reverse: false }
+      ]})
+    },
+    { key: "tileXL", name: "Two images with text", widgetName: "raShowcase", sub: "raShowcase: tileXL · 2列瓷砖", img: "tile-xl.png",
+      create: () => ({ widgetName: "raShowcase", type: "tileXL", blocks: [
+        { img: imgObj(IMG.tileXL), imgLink: "", title: titleObj("Заголовок", "size4"), text: textObj() },
+        { img: imgObj(IMG.tileXL), imgLink: "", title: titleObj("Заголовок", "size4"), text: textObj() }
+      ]})
+    },
+    { key: "tileL", name: "Three images with text", widgetName: "raShowcase", sub: "raShowcase: tileL · 3列瓷砖", img: "tile-l.png",
+      create: () => ({ widgetName: "raShowcase", type: "tileL", blocks: [
+        { img: imgObj(IMG.tileL), imgLink: "", title: titleObj("Заголовок", "size4"), text: textObj() },
+        { img: imgObj(IMG.tileL), imgLink: "", title: titleObj("Заголовок", "size4"), text: textObj() },
+        { img: imgObj(IMG.tileL), imgLink: "", title: titleObj("Заголовок", "size4"), text: textObj() }
+      ]})
+    },
+    { key: "tileM", name: "Four images with text", widgetName: "raShowcase", sub: "raShowcase: tileM · 4列瓷砖", img: "tile-m.png",
+      create: () => ({ widgetName: "raShowcase", type: "tileM", blocks: [
+        { img: imgObj(IMG.tileM), imgLink: "", title: titleObj("Заголовок", "size4"), text: textObj() },
+        { img: imgObj(IMG.tileM), imgLink: "", title: titleObj("Заголовок", "size4"), text: textObj() },
+        { img: imgObj(IMG.tileM), imgLink: "", title: titleObj("Заголовок", "size4"), text: textObj() },
+        { img: imgObj(IMG.tileM), imgLink: "", title: titleObj("Заголовок", "size4"), text: textObj() }
+      ]})
+    },
+    { key: "video", name: "Video", widgetName: "raVideo", sub: "raVideo · 视频（YouTube/embedded）", img: "video.png",
+      create: () => ({ widgetName: "raVideo", type: "youtube", id: "dQw4w9WgXcQ", sources: [], width: 300, height: 168 })
+    },
+    { key: "tileSecondary", name: "Columns with icons", widgetName: "raShowcase", sub: "raShowcase: tileSecondary · 图标列", img: "chess-tile-secondary.png",
+      create: () => ({ widgetName: "raShowcase", type: "tileSecondary", blocks: [
+        { img: imgObj(IMG.tileSecondary, IMG.mobileSmall), imgLink: "", title: titleObj("Заголовок", "size4"), text: textObj() },
+        { img: imgObj(IMG.tileSecondary, IMG.mobileSmall), imgLink: "", title: titleObj("Заголовок", "size4"), text: textObj() },
+        { img: imgObj(IMG.tileSecondary, IMG.mobileSmall), imgLink: "", title: titleObj("Заголовок", "size4"), text: textObj() },
+        { img: imgObj(IMG.tileSecondary, IMG.mobileSmall), imgLink: "", title: titleObj("Заголовок", "size4"), text: textObj() }
+      ]})
+    },
+    { key: "textBlock", name: "Text", widgetName: "raTextBlock", sub: "raTextBlock · 纯文本块", img: "images_widget-previews_text-block2.png",
+      create: () => ({ widgetName: "raTextBlock", title: { items: [{ type: "text", content: "Заголовок" }], size: "size5", color: "color1" }, theme: "primary", padding: "type2", gapSize: "m", text: textObj() })
+    },
+    { key: "list", name: "List", widgetName: "list", sub: "list · 列表（项目符号/编号）", img: "list.png",
+      create: () => ({ widgetName: "list", theme: "bullet", blocks: [
+        { text: textObj(), title: titleObj("Заголовок", "size4") },
+        { text: textObj(), title: titleObj("Заголовок", "size4") },
+        { text: textObj(), title: titleObj("Заголовок", "size4") }
+      ]})
+    },
+    { key: "table", name: "Table", widgetName: "raTable", sub: "raTable · 表格", img: "table.png",
+      create: () => {
+        function cell() { return { items: [{ type: "text", content: TXT }] }; }
+        function headCell() { return { img: imgObj(IMG.table, IMG.table), items: [{ type: "text", content: "Название колонки" }], contentAlign: "left" }; }
+        return { widgetName: "raTable", title: titleObj("Заголовок", "size4"), table: {
+          head: [headCell(), headCell()],
+          body: [[cell(), cell()], [cell(), cell()], [cell(), cell()], [cell(), cell()]]
+        }};
+      }
+    }
+  ];
+
+  // ===== 渲染左侧 Blocks 列表（官方 RA-x4 RA-q1） =====
+  function renderWidgetList() {
+    let html = '';
+    for (const def of WIDGET_DEFS) {
+      html += '<div draggable="true" class="RA-x4 RA-q1 widget-card" data-key="' + def.key + '">' +
+        '<img loading="lazy" src="/api/rich_content/static/' + def.img + '" alt="' + def.key + '" class="_23-a wc-img">' +
+        '<div class="RA-x5 wc-title">' + def.name + '</div>' +
+        '<div style="position:fixed; top:-1000px;"></div>' +
+      '</div>';
+    }
+    widgetList.innerHTML = html;
+    widgetList.querySelectorAll('.widget-card').forEach(card => {
+      const key = card.dataset.key;
+      const def = WIDGET_DEFS.find(d => d.key === key);
+      // 官方：仅拖拽添加（无 click-to-add）
+      card.addEventListener('dragstart', (e) => {
+        e.dataTransfer.setData('text/plain', key);
+        e.dataTransfer.effectAllowed = 'copy';
+        dragData = { key, def };
+        card.style.opacity = '0.5';
+      });
+      card.addEventListener('dragend', () => {
+        card.style.opacity = '';
+        removeSilhouette();
+        canvas.classList.remove('drag-over');
+        dragData = null;
+      });
+    });
+  }
+
+  // ===== 显示 Blocks 列表 / 属性表单 =====
+  function showBlocks() {
+    state.selectedIndex = -1;
+    state.selectedBlock = -1;
+    blocksView.classList.remove('hidden');
+    settingsView.classList.remove('active');
+    renderCanvas();
+  }
+  function showSettings(idx, blockIdx) {
+    state.selectedIndex = idx;
+    state.selectedBlock = (blockIdx == null) ? -1 : blockIdx;
+    blocksView.classList.add('hidden');
+    settingsView.classList.add('active');
+    renderSettingsForm();
+    renderCanvas();
+    // 自动展开并定位到对应 block
+    if (state.selectedBlock >= 0) {
+      const body = settingsForm.querySelector('[data-block-body="' + state.selectedBlock + '"]');
+      const header = settingsForm.querySelector('[data-toggle="' + state.selectedBlock + '"]');
+      if (body) body.classList.add('expanded');
+      if (header) header.classList.add('expanded');
+      const panel = settingsForm.querySelector('[data-block="' + state.selectedBlock + '"]');
+      if (panel) panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }
+
+  // ===== 画布拖放：官方 silhouette 机制 =====
+  // 官方使用模块级变量传递 transferData（非 dataTransfer），用 Silhouette 占位符显示放置位置
+  let dragData = null;
+  let silhouetteEl = null;
+  let dragOverThrottled = false;
+
+  // 官方 determinePosition：比较 pageY 与每个 widget 中点（上半→前，下半→后）
+  function determinePosition(pageY) {
+    const items = canvas.querySelectorAll('.canvas-item:not(.silhouette)');
+    for (let i = 0; i < items.length; i++) {
+      const rect = items[i].getBoundingClientRect();
+      const midY = rect.top + rect.height / 2 + window.scrollY;
+      if (pageY < midY) return i;
+    }
+    return items.length;
+  }
+
+  function createSilhouette() {
+    const el = document.createElement('div');
+    el.className = 'canvas-item silhouette';
+    el.textContent = 'Drop here';
+    return el;
+  }
+
+  // 官方 moveSilhouette / handlerDragenter：在计算位置插入占位符
+  function insertSilhouette(pageY) {
+    if (!silhouetteEl) silhouetteEl = createSilhouette();
+    const pos = determinePosition(pageY);
+    const items = canvas.querySelectorAll('.canvas-item:not(.silhouette)');
+    if (pos >= items.length) {
+      canvas.appendChild(silhouetteEl);
+    } else {
+      canvas.insertBefore(silhouetteEl, items[pos]);
+    }
+  }
+
+  function removeSilhouette() {
+    if (silhouetteEl && silhouetteEl.parentNode) {
+      silhouetteEl.parentNode.removeChild(silhouetteEl);
+    }
+    silhouetteEl = null;
+    // 如果画布为空，恢复空提示
+    if (state.content.length === 0 && !canvas.querySelector('.canvas-item')) {
+      renderCanvas();
+    }
+  }
+
+  canvas.addEventListener('dragenter', (e) => {
+    e.preventDefault();
+    if (!dragData) return;
+    canvas.classList.add('drag-over');
+    insertSilhouette(e.pageY);
+  });
+  canvas.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+    if (!dragData) return;
+    // 官方 throttleHandlerDragOver：150ms 节流
+    if (dragOverThrottled) return;
+    dragOverThrottled = true;
+    setTimeout(() => { dragOverThrottled = false; }, 150);
+    insertSilhouette(e.pageY);
+  });
+  canvas.addEventListener('dragleave', (e) => {
+    if (!canvas.contains(e.relatedTarget)) {
+      canvas.classList.remove('drag-over');
+      removeSilhouette();
+    }
+  });
+  canvas.addEventListener('drop', (e) => {
+    e.preventDefault();
+    canvas.classList.remove('drag-over');
+    if (!dragData) return;
+    // 官方 handlerDrop：用真实 widget 替换占位符位置
+    const pos = determinePosition(e.pageY);
+    const widget = dragData.def.create();
+    state.content.splice(pos, 0, widget);
+    state.selectedIndex = pos;
+    removeSilhouette();
+    const defName = dragData.def.name;
+    dragData = null;
+    renderCanvas();
+    showSettings(state.selectedIndex);
+    flashStatus('Added ' + defName, 'ok');
+  });
+
+  // ===== 渲染右侧画布 =====
+  function renderCanvas() {
+    // 官方 isSaveButtonDisabled：无 widget 时禁用 Copy/Preview/Download 按钮
+    const hasWidgets = state.content.length > 0;
+    document.querySelectorAll('.toolbar button[data-act]').forEach(btn => {
+      btn.disabled = !hasWidgets;
+    });
+    // 官方逻辑：editorNotEmpty(RA-g1) 仅在有内容时添加，移除空画布的虚线轮廓
+    if (state.content.length === 0) {
+      canvas.classList.remove('RA-g1');
+      canvasWrap.classList.remove('RA-g4'); // 移除Mobile宽度限制
+      canvas.innerHTML = '';
+      return;
+    }
+    canvas.classList.add('RA-g1');
+    // 官方平台切换逻辑：Mobile模式在 RA-f6 上添加 RA-g4 类（.RA-g4 .RA-g0{width:375px}），Desktop模式移除（width:100%）
+    if (state.platform === 'mobile') {
+      canvasWrap.classList.add('RA-g4');
+    } else {
+      canvasWrap.classList.remove('RA-g4');
+    }
+    let html = '';
+    for (let i = 0; i < state.content.length; i++) {
+      const w = state.content[i];
+      const selected = i === state.selectedIndex;
+      // 官方结构：RA-q2 RA-g2（画布项）> div[widgetname] > div.RA-g8.RA-g9.RA-i5 > div（widget内容） + RA-q5（操作按钮列）
+      // RA-q5 内部：RA-q6（删除按钮）+ [选中态: <!----><!----> 无 chevron] + [未选中: _4-a _4-e7 chevron rotate90 展开] + _29-a RA-q8（空占位）
+      html += '<div class="RA-q2 RA-g2 canvas-item' + (selected ? ' selected RA-q4' : '') + '" data-idx="' + i + '">' +
+        '<div widgetname="' + w.widgetName + '"><div class="RA-g8 RA-g9 RA-i5"><div>' + renderWidget(w, i) + '</div></div></div>' +
+        '<div class="RA-q5">' +
+          '<div class="RA-q6 _4-a _4-e7">' +
+            '<button class="_4-a1 _4-e7 ci-del" title="Delete" type="button" style="border-radius:8px;">' +
+              '<span class="_4-a3 _4-b _4-d8 _4-e7" style="border-radius:8px;">' +
+                '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" class="_4-d6"><path fill="currentColor" d="M8.995 4.002a1 1 0 0 0-1 1v1h5a1 1 0 1 1 0 2h-7v11a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-11h-1a1 1 0 0 1-1-1v-2a1 1 0 0 0-1-1zm11 4v11a3 3 0 0 1-3 3h-10a3 3 0 0 1-3-3v-11h-1a1 1 0 0 1 0-2h3v-1a3 3 0 0 1 3-3h6a3 3 0 0 1 3 3v1h3a1 1 0 1 1 0 2zm-10 3a1 1 0 0 1 1 1v4a1 1 0 1 1-2 0v-4a1 1 0 0 1 1-1m4 0a1 1 0 0 1 1 1v4a1 1 0 1 1-2 0v-4a1 1 0 0 1 1-1"></path></svg>' +
+                '<span class="_4-e0"></span>' +
+              '</span>' +
+            '</button>' +
+          '</div>' +
+          // 官方逻辑：选中态（RA-q4）无 chevron（<!----><!----> 占位），未选中态显示展开 chevron（rotate 90deg）
+          (selected ? '<!----><!---->' :
+            '<div class="_4-a _4-e7">' +
+              '<button class="_4-a1 _4-e7 ci-toggle" title="Expand" type="button" style="border-radius:8px;">' +
+                '<span class="_4-a3 _4-b _4-d8 _4-e7" style="border-radius:8px;">' +
+                  '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" class="_4-d6" style="transform: rotate(90deg);"><path fill="currentColor" d="M8.293 4.293a1 1 0 0 0 0 1.414L14.586 12l-6.293 6.293a1 1 0 1 0 1.414 1.414l7-7a1 1 0 0 0 0-1.414l-7-7a1 1 0 0 0-1.414 0"></path></svg>' +
+                  '<span class="_4-e0"></span>' +
+                '</span>' +
+              '</button>' +
+            '</div>'
+          ) +
+          '<div class="_29-a RA-q8" is-mobile-theme="' + (state.platform === 'mobile' ? 'true' : 'false') + '" widgetdata="[object Object]"> </div>' +
+        '</div>' +
+      '</div>';
+    }
+    canvas.innerHTML = html;
+    // 官方行为：只有选中的 widget 的文本才可编辑（contenteditable）
+    // 未选中的 widget 移除 contenteditable，避免显示编辑光标和允许编辑
+    canvas.querySelectorAll('.canvas-item:not(.selected) [contenteditable]').forEach(el => {
+      el.removeAttribute('contenteditable');
+    });
+    // 高亮选中的 block
+    if (state.selectedBlock >= 0) {
+      const activeBlock = canvas.querySelector('.canvas-item.selected [data-block-idx="' + state.selectedBlock + '"]');
+      if (activeBlock) activeBlock.classList.add('block-active');
+    }
+    // 绑定事件
+    canvas.querySelectorAll('.canvas-item').forEach(item => {
+      const idx = parseInt(item.dataset.idx);
+      item.addEventListener('click', (e) => {
+        if (e.target.closest('.RA-q5')) return;
+        // 点击 contenteditable 元素且 widget 已选中时，允许直接编辑，不调用 showSettings
+        // 避免 renderCanvas 重建 DOM 导致 contenteditable 失焦无法输入
+        if (e.target.isContentEditable && state.selectedIndex === idx) return;
+        // 检测点击的 block 索引
+        const blockEl = e.target.closest('[data-block-idx]');
+        const blockIdx = blockEl ? parseInt(blockEl.dataset.blockIdx) : null;
+        showSettings(idx, blockIdx);
+      });
+      const delBtn = item.querySelector('.ci-del');
+      if (delBtn) delBtn.addEventListener('click', (e) => { e.stopPropagation(); deleteWidget(idx); });
+      const toggleBtn = item.querySelector('.ci-toggle');
+      if (toggleBtn) toggleBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        // 未选中态点击 chevron 展开（选中并显示设置）；选中态无 chevron，无需处理
+        showSettings(idx, null);
+      });
+    });
+    // ===== Canvas contenteditable 输入监听（同步编辑内容到 state） =====
+    // 监听 canvas 区域所有带 contenteditable 和 data-path 的元素，编辑时同步到 state.items[0].content
+    canvas.querySelectorAll('[contenteditable][data-path]').forEach(el => {
+      el.addEventListener('input', () => {
+        const path = el.dataset.path;
+        const text = el.textContent;
+        // 更新 state 中对应路径的 items[0].content（官方 schema 中 title/text 的 items 数组）
+        const obj = getByPath(state, path);
+        if (obj && obj.items && obj.items.length > 0) {
+          obj.items[0].content = text;
+        }
+        // 官方行为：编辑后自动更新左侧设置面板（如果当前选中该 widget/block）
+        // 由于 renderCanvas 会重建 DOM，导致编辑焦点丢失，因此仅更新 state，不重新渲染
+        // 左侧面板会在下次 showSettings 时自动同步
+      });
+    });
+  }
+
+  function moveWidget(idx, dir) {
+    const newIdx = idx + dir;
+    if (newIdx < 0 || newIdx >= state.content.length) return;
+    const tmp = state.content[idx];
+    state.content[idx] = state.content[newIdx];
+    state.content[newIdx] = tmp;
+    if (state.selectedIndex === idx) state.selectedIndex = newIdx;
+    renderCanvas();
+    if (settingsView.classList.contains('active')) renderSettingsForm();
+  }
+
+  function deleteWidget(idx) {
+    if (!confirm('Delete this widget?')) return;
+    state.content.splice(idx, 1);
+    if (state.selectedIndex === idx) { state.selectedIndex = -1; state.selectedBlock = -1; }
+    else if (state.selectedIndex > idx) state.selectedIndex--;
+    renderCanvas();
+    if (state.selectedIndex >= 0) renderSettingsForm();
+    else showBlocks();
+    flashStatus('Deleted', 'ok');
+  }
+
+  // ===== 渲染左侧属性表单 =====
+  function renderSettingsForm() {
+    const idx = state.selectedIndex;
+    if (idx < 0 || idx >= state.content.length) { showBlocks(); return; }
+    const w = state.content[idx];
+    const def = WIDGET_DEFS.find(d => d.widgetName === w.widgetName && (!w.type || d.create().type === w.type));
+    settingsTitle.textContent = (def ? def.name : w.widgetName) || 'Widget';
+
+    let html = '';
+    if (w.widgetName === 'raShowcase') {
+      html += renderShowcaseForm(w, idx);
+    } else if (w.widgetName === 'raTextBlock') {
+      html += renderTextBlockForm(w, idx);
+    } else if (w.widgetName === 'raVideo') {
+      html += renderVideoForm(w, idx);
+    } else if (w.widgetName === 'list') {
+      html += renderListForm(w, idx);
+    } else if (w.widgetName === 'raTable') {
+      html += renderTableForm(w, idx);
+    }
+    settingsForm.innerHTML = html;
+    bindFormEvents();
+    // 如果没有指定 block，默认展开第一个
+    if (state.selectedBlock < 0) {
+      const firstBody = settingsForm.querySelector('[data-block-body="0"]');
+      const firstHeader = settingsForm.querySelector('[data-toggle="0"]');
+      if (firstBody) firstBody.classList.add('expanded');
+      if (firstHeader) firstHeader.classList.add('expanded');
+    }
+    // 高亮选中 block
+    if (state.selectedBlock >= 0) {
+      const panel = settingsForm.querySelector('[data-block="' + state.selectedBlock + '"]');
+      if (panel) panel.classList.add('block-panel-highlight');
+    }
+  }
+
+  // ===== raShowcase 表单（对齐官方字段顺序） =====
+  // 官方字段顺序：Display(platform) → View(type) → [per block: Direct link → Image placement → Show background → Image position(chess) → Link in image → Textual description → Title → Body text]
+  const SHOWCASE_TYPES = [
+    { value: 'roll', label: 'Изображение без отступов' },
+    { value: 'billboard', label: 'Изображение с текстом' },
+    { value: 'chess', label: 'Изображение и текст справа' },
+    { value: 'tileXL', label: 'Два изображения с текстом' },
+    { value: 'tileL', label: 'Три изображения с текстом' },
+    { value: 'tileM', label: 'Четыре изображения с текстом' },
+    { value: 'tileSecondary', label: 'Колонки с иконками' }
+  ];
+  // 官方 ro(type)：CHESS/TILE_M/TILE_L/TILE_XL/TILE_SECONDARY 有 isParandja（Показать фон）
+  // ROLL 和 BILLBOARD 的 ro()=false，不显示 Show background
+  const TYPES_WITH_BACKGROUND = ['chess', 'tileM', 'tileL', 'tileXL', 'tileSecondary'];
+  // 需要 reverse 字段的类型（仅 chess）
+  const TYPES_WITH_REVERSE = ['chess'];
+  // 需要 title/text 的类型
+  const TYPES_WITH_TEXT = ['billboard', 'chess', 'tileXL', 'tileL', 'tileM', 'tileSecondary'];
+
+  function renderShowcaseForm(w, idx) {
+    const type = w.type;
+    const blocks = w.blocks || [];
+    const pf = state.platform; // 'desktop' or 'mobile'
+    const isMobile = pf === 'mobile';
+    // 字段后缀（桌面无后缀，移动端 Mobile）
+    const srcKey = isMobile ? 'srcMobile' : 'src';
+    const posKey = isMobile ? 'positionMobile' : 'position';
+    const parandjaKey = isMobile ? 'isParandjaMobile' : 'isParandja';
+
+    let html = '';
+    // ===== Display（平台切换器，对齐官方 RA-a5a：RA-aa6(label) + RA-aa7(btn group) + RA-aa8(icon btn) + RA-a8a(active)）=====
+    // 注意：官方 Display 不在 OzField 里，直接在 form 下，用独立的 RA-a5a 容器
+    html += '<div class="RA-a5a">' +
+      '<div class="RA-aa6">Отображение</div>' +
+      '<div class="RA-aa7">' +
+        '<div title="Мобильный" class="RA-aa8' + (isMobile ? ' RA-a8a' : '') + '" data-pf="mobile">' +
+          '<svg class="RA-a7a" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="' + ICON_MOBILE + '"/></svg>' +
+        '</div>' +
+        '<div title="Десктоп" class="RA-aa8' + (!isMobile ? ' RA-a8a' : '') + '" data-pf="desktop">' +
+          '<svg class="RA-a7a" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="' + ICON_DESKTOP + '"/></svg>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+
+    // ===== View（widget type 选择器，对齐官方 fieldset.RA-o9 > div > div.RA-p7 > OzField.RA-p + OzSelect）=====
+    html += '<fieldset class="RA-o9"><div><div class="RA-p7">' +
+      fieldGroup('Вид', selectInput('content[' + idx + '].type', type, SHOWCASE_TYPES)) +
+      '</div></div></fieldset>';
+
+    // ===== blocks 编辑（官方称 "Карточка"，对齐 fieldset.RA-o9 + legend.RA-p0） =====
+    for (let bi = 0; bi < blocks.length; bi++) {
+      const b = blocks[bi];
+      const img = b.img || {};
+      html += '<fieldset class="block-panel RA-o9" data-block="' + bi + '">' +
+        '<legend><div class="RA-p0 block-panel-header" data-toggle="' + bi + '">' +
+          '<div class="RA-p1 _4-a"><button class="_4-a1" type="button" style="border-radius:8px;"><span class="_4-a3 _4-c6 _4-d9" style="border-radius:8px;"><span class="_4-e0">Карточка</span></span></button></div>' +
+          '<div class="RA-p3 _4-a">' +
+            (blocks.length > 1 ? '<button class="_4-a1 block-del" data-block-del="' + bi + '" type="button" style="border-radius:8px;" title="Delete"><span class="_4-a3 _4-c6 _4-d8" style="border-radius:8px;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/></svg></span></button>' : '') +
+            '<button class="_4-a1" type="button" style="border-radius:8px;"><span class="_4-a3 _4-c6 _4-d8" style="border-radius:8px;"><svg class="_4-d6 chevron" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" style="transform: rotate(270deg);"><path d="' + ICON_CHEVRON + '"/></svg></span></button>' +
+          '</div>' +
+        '</div></legend>' +
+        '<div class="block-panel-body" data-block-body="' + bi + '">';
+
+      // 官方字段顺序：Изображение separator → reverse(chess) → Direct link → Image placement → isParandja(chess/tile*) → Link in image → alt → Работа с текстом separator → Title → Body text
+
+      // 0. "Изображение" 分节标题（对齐官方 VisualEditorHeading: div.RA-t1.RA-t2 > h3.RA-t7.RA-t9 + div.RA-u0 提示）
+      html += '<div class="RA-t1 RA-t2"><h3 class="RA-t7 RA-t9">Изображение</h3><div class="RA-u0">Совет: для корректного отображения рекомендуем загрузить изображение с высотой меньше (или равной) его ширине</div></div>';
+
+      // 1. Image position / reverse（Положение изображения）→ reverse（仅 chess，官方在 Direct link 之前）
+      if (TYPES_WITH_REVERSE.includes(type)) {
+        html += fieldGroup('Положение изображения', selectInput('content[' + idx + '].blocks[' + bi + '].reverse', b.reverse ? 'true' : 'false', [
+          { value: 'false', label: 'Слева' },
+          { value: 'true', label: 'Справа' }
+        ]));
+      }
+
+      // 2. Direct link（Прямая ссылка）→ src 或 srcMobile（官方 label: icon=Desktop, info=直链说明）
+      html += fieldGroup('Прямая ссылка', textInput('content[' + idx + '].blocks[' + bi + '].img.' + srcKey, img[srcKey] || '', 'Specify the address of the image that will be displayed from the ' + pf), null, ICON_DESKTOP, 'Specify the address of the image that will be displayed from the ' + pf);
+
+      // 3. Image placement（Размещение изображения）→ position 或 positionMobile（官方 label: icon=Desktop, 无 info，控件为图片按钮组 RA-r4 系列）
+      const posOptions = positionsFor(type);
+      const defaultPos = TYPES_WITH_BACKGROUND.includes(type) ? 'to_the_edge' : 'width_full';
+      const currentPos = img[posKey] || defaultPos;
+      html += fieldGroup('Размещение изображения', imagePlacementInput('content[' + idx + '].blocks[' + bi + '].img.' + posKey, currentPos, posOptions), null, ICON_DESKTOP);
+
+      // 4. Show background（Показать фон）→ isParandja（仅 chess/tile* 类型，官方 ro(type)）
+      // 官方 OzCheckbox toggle 自带 label（_6-a0 description），无需 OzField 包裹
+      if (TYPES_WITH_BACKGROUND.includes(type)) {
+        html += '<div class="_22-a RA-p"><div class="RA-p4">' + toggleInput('content[' + idx + '].blocks[' + bi + '].img.' + parandjaKey, img[parandjaKey] !== false, 'Показать фон') + '</div></div>';
+      }
+
+      // 5. Link in image（Ссылка в изображении）→ imgLink（官方 label: 无 icon, info=点击说明）
+      html += fieldGroup('Ссылка в изображении', textInput('content[' + idx + '].blocks[' + bi + '].imgLink', b.imgLink || '', 'Specify a link inside the Ozon service'), null, null, 'Specify a link inside the Ozon service');
+
+      // 6. Textual description（Текстовое описание）→ alt（官方 label: 无 icon, info=禁用图片时文本）
+      html += fieldGroup('Текстовое описание', textInput('content[' + idx + '].blocks[' + bi + '].img.alt', img.alt || '', 'Text when images are disabled in a browser'), null, null, 'Text when images are disabled in a browser');
+
+      // 7. "Работа с текстом" 分节标题（对齐官方 VisualEditorHeading: div.RA-t1.RA-t3 > h3.RA-t7.RA-t9，marginType type2）
+      if (TYPES_WITH_TEXT.includes(type)) {
+        html += '<div class="RA-t1 RA-t3"><h3 class="RA-t7 RA-t9">Работа с текстом</h3></div>';
+
+        // 8. Title（Заголовок）—— 官方使用 RA-p7 包裹（div.RA-t1.RA-t2 > h3.RA-t7.RA-t8 + 三字段）
+        // 官方 Title 分组只有样式字段（Text size/Text color/Text align），无 Title 输入框（标题内容在预览中显示）
+        const title = b.title || {};
+        html += '<div class="RA-p7"><div class="RA-t1 RA-t2"><h3 class="RA-t7 RA-t8">Заголовок</h3></div>';
+        // 官方 Text size 使用 OzSelect（保持 selectInput）
+        html += fieldGroup('Размер текста', selectInput('content[' + idx + '].blocks[' + bi + '].title.size', title.size || 'size4', SIZES));
+        // 官方 Text color 使用颜色选择器（OzonColorPicker），替换错误的 selectInput
+        html += fieldGroup('Цвет текста', colorPickerInput('content[' + idx + '].blocks[' + bi + '].title.color', title.color || 'color1'));
+        // 官方 Text align 使用对齐按钮组（OzonAlignPicker），替换错误的 selectInput
+        html += fieldGroup('Выравнивание текста', textAlignInput('content[' + idx + '].blocks[' + bi + '].title.align', title.align || 'left'));
+        html += '</div>';
+
+        // 9. Body text（Основной текст）—— 官方使用 RA-p7 包裹（div.RA-t1.RA-t2 > h3.RA-t7.RA-t8 + 三字段 + Link字段）
+        // 官方 Body text 分组只有样式字段（Text size/Text color/Text align），无 textarea（正文内容在预览画布中 contenteditable 编辑）
+        const text = b.text || {};
+        html += '<div class="RA-p7"><div class="RA-t1 RA-t2"><h3 class="RA-t7 RA-t8">Основной текст</h3></div>';
+        // 官方 Text size 使用 OzSelect（保持 selectInput）
+        html += fieldGroup('Размер текста', selectInput('content[' + idx + '].blocks[' + bi + '].text.size', text.size || 'size2', SIZES));
+        // 官方 Text color 使用颜色选择器（OzonColorPicker），替换错误的 selectInput
+        html += fieldGroup('Цвет текста', colorPickerInput('content[' + idx + '].blocks[' + bi + '].text.color', text.color || 'color1'));
+        // 官方 Text align 使用对齐按钮组（OzonAlignPicker），替换错误的 selectInput
+        html += fieldGroup('Выравнивание текста', textAlignInput('content[' + idx + '].blocks[' + bi + '].text.align', text.align || 'left'));
+        // 官方 Link in text 字段：带 NEW 标签（div.RA-u1.RA-p > div文字 + info popover + NEW badge）
+        // 官方 NEW badge：div._3-a._3-a0._3-a3.RA-u5（background:rgb(255,184,0), color:rgb(0,26,52)） > div._3-a5("NEW")
+        html += '<div class="RA-u1 RA-p"><div>Link in text</div>' +
+          '<div class="_29-a RA-u3"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><path fill="currentColor" d="' + ICON_INFO + '"/></svg> </div>' +
+          '<div class="_3-a _3-a0 _3-a3 RA-u5" style="background-color: rgb(255, 184, 0); color: rgb(0, 26, 52);"><div class="_3-a5">NEW</div></div>' +
+        '</div>';
+        html += '</div>';
+      }
+
+      html += '</div></fieldset>';
+    }
+    html += '<div class="RA-p5 _4-a"><button class="_4-a1" data-add-block type="button" style="border-radius:8px;"><span class="_4-a3 _4-b" style="border-radius:8px;"><svg class="_4-d6" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="' + ICON_PLUS + '"/></svg><span class="_4-e0">Добавить</span></span></button></div>';
+    return html;
+  }
+
+  function getBlockFields(type) {
+    if (type === 'roll') return ['img', 'imgLink'];
+    if (type === 'billboard') return ['img', 'title', 'text', 'imgLink'];
+    if (type === 'chess') return ['img', 'title', 'text', 'imgLink', 'reverse'];
+    return ['img', 'title', 'text', 'imgLink'];
+  }
+
+  // ===== raTextBlock 表单（对齐官方：Title/Body 在画布 contenteditable 编辑，左侧仅样式字段）=====
+  function renderTextBlockForm(w, idx) {
+    const title = w.title || {};
+    const text = w.text || {};
+    let html = '';
+    // 官方字段顺序：Theme/Padding/GapSize（顶部）→ Title 样式 → Body text 样式
+    html += rowGroup(
+      fieldGroup('Тема', selectInput('content[' + idx + '].theme', w.theme || 'primary', ['primary', 'secondary'])) +
+      fieldGroup('Отступ', selectInput('content[' + idx + '].padding', w.padding || 'type2', ['type1', 'type2', 'type3'])) +
+      fieldGroup('Размер отступа', selectInput('content[' + idx + '].gapSize', w.gapSize || 'm', ['s', 'm', 'l']))
+    );
+    // 官方 "Заголовок" 分节标题（VisualEditorHeading: RA-t1.RA-t2 > h3.RA-t7.RA-t8）
+    html += '<div class="RA-p7"><div class="RA-t1 RA-t2"><h3 class="RA-t7 RA-t8">Заголовок</h3></div>';
+    // Title 样式字段（官方使用 OzSelect + OzonColorPicker，无 Title 输入框，标题内容在画布中 contenteditable 编辑）
+    html += fieldGroup('Размер текста', selectInput('content[' + idx + '].title.size', title.size || 'size5', SIZES));
+    html += fieldGroup('Цвет текста', colorPickerInput('content[' + idx + '].title.color', title.color || 'color1'));
+    html += '</div>';
+    // 官方 "Основной текст" 分节标题
+    html += '<div class="RA-p7"><div class="RA-t1 RA-t2"><h3 class="RA-t7 RA-t8">Основной текст</h3></div>';
+    // Body text 样式字段（官方使用 OzSelect + OzonColorPicker + OzonAlignPicker，无 textarea，正文内容在画布中 contenteditable 编辑）
+    html += fieldGroup('Размер текста', selectInput('content[' + idx + '].text.size', text.size || 'size2', SIZES));
+    html += fieldGroup('Цвет текста', colorPickerInput('content[' + idx + '].text.color', text.color || 'color1'));
+    html += fieldGroup('Выравнивание текста', textAlignInput('content[' + idx + '].text.align', text.align || 'left'));
+    html += '</div>';
+    return html;
+  }
+
+  // ===== raVideo 表单（对齐官方 schema：type=youtube|embed|embedded，source type 自由文本）=====
+  function renderVideoForm(w, idx) {
+    let html = '';
+    html += fieldGroup('Тип видео', selectInput('content[' + idx + '].type', w.type || 'youtube', [
+      { value: 'youtube', label: 'YouTube' },
+      { value: 'embedded', label: 'Встроенное' }
+    ]));
+    if (w.type === 'youtube') {
+      html += fieldGroup('ID видео YouTube', textInput('content[' + idx + '].id', w.id || '', 'напр. dQw4w9WgXcQ'));
+    } else {
+      html += rowGroup(
+        fieldGroup('Ширина', textInput('content[' + idx + '].width', w.width || 300, 'px')) +
+        fieldGroup('Высота', textInput('content[' + idx + '].height', w.height || 168, 'px'))
+      );
+      const sources = w.sources || [];
+      for (let si = 0; si < sources.length; si++) {
+        html += rowGroup(
+          fieldGroup('Источник ' + (si + 1) + ' тип', textInput('content[' + idx + '].sources[' + si + '].type', sources[si].type || 'video/mp4', 'напр. video/mp4')) +
+          fieldGroup('Источник ' + (si + 1) + ' URL', textInput('content[' + idx + '].sources[' + si + '].src', sources[si].src || '', 'URL видео'))
+        );
+      }
+    }
+    return html;
+  }
+
+  // ===== list 表单（对齐官方：Title/Body 在画布 contenteditable 编辑，左侧仅样式字段）=====
+  function renderListForm(w, idx) {
+    let html = '';
+    html += rowGroup(fieldGroup('Тема', selectInput('content[' + idx + '].theme', w.theme || 'bullet', [
+      { value: 'bullet', label: 'Маркеры' },
+      { value: 'number', label: 'Нумерация' },
+      { value: 'image', label: 'Изображения' }
+    ])));
+    const blocks = w.blocks || [];
+    for (let bi = 0; bi < blocks.length; bi++) {
+      const b = blocks[bi];
+      const title = b.title || {};
+      const text = b.text || {};
+      html += '<fieldset class="block-panel RA-o9" data-block="' + bi + '">' +
+        '<legend><div class="RA-p0 block-panel-header" data-toggle="' + bi + '">' +
+          '<div class="RA-p1 _4-a"><button class="_4-a1" type="button" style="border-radius:8px;"><span class="_4-a3 _4-c6 _4-d9" style="border-radius:8px;"><span class="_4-e0">Элемент списка</span></span></button></div>' +
+          '<div class="RA-p3 _4-a">' +
+            (blocks.length > 1 ? '<button class="_4-a1 block-del" data-block-del="' + bi + '" type="button" style="border-radius:8px;" title="Delete"><span class="_4-a3 _4-c6 _4-d8" style="border-radius:8px;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/></svg></span></button>' : '') +
+            '<button class="_4-a1" type="button" style="border-radius:8px;"><span class="_4-a3 _4-c6 _4-d8" style="border-radius:8px;"><svg class="_4-d6 chevron" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" style="transform: rotate(270deg);"><path d="' + ICON_CHEVRON + '"/></svg></span></button>' +
+          '</div>' +
+        '</div></legend>' +
+        '<div class="block-panel-body" data-block-body="' + bi + '">';
+      // 官方 "Заголовок" 分节标题（Title 内容在画布中 contenteditable 编辑，左侧仅样式字段）
+      html += '<div class="RA-p7"><div class="RA-t1 RA-t2"><h3 class="RA-t7 RA-t8">Заголовок</h3></div>';
+      html += fieldGroup('Размер текста', selectInput('content[' + idx + '].blocks[' + bi + '].title.size', title.size || 'size4', SIZES));
+      html += fieldGroup('Цвет текста', colorPickerInput('content[' + idx + '].blocks[' + bi + '].title.color', title.color || 'color1'));
+      html += '</div>';
+      // 官方 "Основной текст" 分节标题
+      html += '<div class="RA-p7"><div class="RA-t1 RA-t2"><h3 class="RA-t7 RA-t8">Основной текст</h3></div>';
+      html += fieldGroup('Размер текста', selectInput('content[' + idx + '].blocks[' + bi + '].text.size', text.size || 'size2', SIZES));
+      html += fieldGroup('Цвет текста', colorPickerInput('content[' + idx + '].blocks[' + bi + '].text.color', text.color || 'color1'));
+      html += fieldGroup('Выравнивание текста', textAlignInput('content[' + idx + '].blocks[' + bi + '].text.align', text.align || 'left'));
+      html += '</div>';
+      if (w.theme === 'image') {
+        html += fieldGroup('URL иконки', textInput('content[' + idx + '].blocks[' + bi + '].img.src', b.img?.src || IMG.listImg, 'URL иконки'));
+      }
+      html += '</div></fieldset>';
+    }
+    html += '<div class="RA-p5 _4-a"><button class="_4-a1" data-add-block type="button" style="border-radius:8px;"><span class="_4-a3 _4-b" style="border-radius:8px;"><svg class="_4-d6" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="' + ICON_PLUS + '"/></svg><span class="_4-e0">Добавить</span></span></button></div>';
+    return html;
+  }
+
+  // ===== raTable 表单（对齐官方：Title 在画布 contenteditable 编辑，左侧仅样式字段 + Header/Body 单元格编辑）=====
+  function renderTableForm(w, idx) {
+    const title = w.title || {};
+    const table = w.table || {};
+    let html = '';
+    // 官方 "Заголовок" 分节标题（Title 内容在画布中 contenteditable 编辑，左侧仅样式字段）
+    html += '<div class="RA-p7"><div class="RA-t1 RA-t2"><h3 class="RA-t7 RA-t8">Заголовок</h3></div>';
+    html += fieldGroup('Размер текста', selectInput('content[' + idx + '].title.size', title.size || 'size4', SIZES));
+    html += fieldGroup('Цвет текста', colorPickerInput('content[' + idx + '].title.color', title.color || 'color1'));
+    html += fieldGroup('Выравнивание текста', textAlignInput('content[' + idx + '].title.align', title.align || 'left'));
+    html += '</div>';
+    // 官方 "Шапка таблицы" 分节标题（表头单元格内容在左侧 input 编辑，因为表格单元格不便在画布编辑）
+    html += '<div class="RA-p7"><div class="RA-t1 RA-t2"><h3 class="RA-t7 RA-t9">Шапка</h3></div>';
+    const head = table.head || [];
+    for (let ci = 0; ci < head.length; ci++) {
+      const cell = head[ci];
+      html += fieldGroup('Колонка ' + (ci + 1), textInput('content[' + idx + '].table.head[' + ci + '].items[0].content', (cell.items && cell.items[0]?.content) || '', 'Название колонки'));
+      html += fieldGroup('Выравнивание', selectInput('content[' + idx + '].table.head[' + ci + '].contentAlign', cell.contentAlign || 'left', ALIGNS));
+    }
+    html += '</div>';
+    // 官方 "Тело таблицы" 分节标题（表体单元格内容在左侧 input 编辑）
+    html += '<div class="RA-p7"><div class="RA-t1 RA-t2"><h3 class="RA-t7 RA-t9">Тело</h3></div>';
+    const body = table.body || [];
+    for (let ri = 0; ri < body.length; ri++) {
+      const row = body[ri] || [];
+      for (let ci = 0; ci < row.length; ci++) {
+        const cell = row[ci] || {};
+        html += fieldGroup('Строка ' + (ri + 1) + ' Колонка ' + (ci + 1), textInput('content[' + idx + '].table.body[' + ri + '][' + ci + '].items[0].content', (cell.items && cell.items[0]?.content) || '', 'Содержимое ячейки'));
+      }
+    }
+    html += '</div>';
+    return html;
+  }
+
+  // ===== 表单字段生成器 =====
+  function fieldGroup(label, inputHtml, hint, icon, info) {
+    // 对齐官方：OzField.RA-p.field（_22-a + RA-p 双类） > label._22-a0 > FieldLabel(div.RA-u1) + 控件(inputHtml 自带 RA-p4)
+    // FieldLabel(WidgetsSettingsFieldLabel): div.RA-u1(display:flex,color:#96a3ae) > [svg.RA-u2(icon)] + div(text,无class) + [div._29-a.RA-u3(info popover) > svg]
+    // 注意：inputHtml 自身负责 RA-p4 容器（对齐官方：不同控件类型 RA-p4 位置不同）
+    // 官方 label 统一使用 for="noop" 属性，阻止 label 的默认聚焦行为（点击 label 不聚焦 input）
+    var labelHtml = '<div class="RA-u1">';
+    if (icon) {
+      labelHtml += '<svg class="RA-u2" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="' + icon + '"/></svg>';
+    }
+    labelHtml += '<div>' + label + '</div>';
+    if (info) {
+      labelHtml += '<div class="_29-a RA-u3" title="' + escapeAttr(info) + '"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="' + ICON_INFO + '"/></svg></div>';
+    }
+    labelHtml += '</div>';
+    return '<div class="_22-a RA-p"><label for="noop" class="_22-a0">' + labelHtml +
+      inputHtml +
+      (hint ? '<div class="form-hint">' + hint + '</div>' : '') + '</label></div>';
+  }
+  function rowGroup(html) { return '<div class="form-row">' + html + '</div>'; }
+  function textInput(path, value, placeholder) {
+    // 对齐官方 OzInput：div._46-a._46-a5._46-b6._46-b7.RA-p4 > div._46-b0 > input._24-a._24-a1 + [p._46-a0 占位符]
+    // _46-b6 为带边框变体；_46-b7 为官方第二个变体类（必须添加以完全对齐官方结构）
+    // RA-p4 直接在 _46-a 上（非独立 div）；p._46-a0 是官方占位符元素
+    // 保留 form-input 类用于事件绑定；input 添加 placeholder=" " 用于 :placeholder-shown 选择器控制 p._46-a0 显隐
+    return '<div class="_46-a _46-a5 _46-b6 _46-b7 RA-p4"><div class="_46-b0">' +
+      '<input class="_24-a _24-a1 form-input" type="text" data-path="' + path + '" value="' + escapeAttr(value) + '"' + (placeholder ? ' placeholder=" "' : '') + '>' +
+      (placeholder ? '<p class="_46-a0">' + escapeHtml(placeholder) + '</p>' : '') +
+      '</div></div>';
+  }
+  function textArea(path, value, placeholder) {
+    // 对齐官方 textarea：div.RA-p4 包裹 textarea（无 placeholder 属性，无其他容器）
+    // 官方 textarea 只有 class="form-textarea" 和 data-path，无 placeholder
+    return '<div class="RA-p4"><textarea class="form-textarea" data-path="' + path + '">' + escapeHtml(value) + '</textarea></div>';
+  }
+  function selectInput(path, value, options) {
+    // 对齐官方 OzSelect 完整结构（深度逆向）：
+    // div._38-a._38-b5.RA-p4.oz-select[data-path][data-value]
+    //   > div._46-a._46-a5._46-b7[errors=""] > div._46-b0._46-b2
+    //     > div._29-a._38-a0[role=listbox] > div._38-a1._38-a2
+    //       > div._38-a6 > (div._38-a7[text=选中值] + input._38-b0[combobox] + span._38-b7 > svg._38-b8)
+    //     > div._46-a2._46-a5 (placeholder/error 容器，官方存在但当前无内容)
+    //   > div.oz-select-dropdown (自定义下拉，默认隐藏) > div.oz-select-option[data-value] × N
+    // 关键差异修复：
+    // 1. input 和 span 在 _38-a6 内部（和 _38-a7 同级），而非 _38-a1 _38-a2 外部
+    // 2. 添加 errors="" 属性（官方空字符串）
+    // 3. 添加 _46-a2._46-a5 容器（placeholder/error）
+    // 4. input 无 readonly 属性（官方允许用户输入过滤）
+    const selOpt = options.find(o => (typeof o === 'object' ? o.value : o) === value) || options[0];
+    const selVal = typeof selOpt === 'object' ? selOpt.value : selOpt;
+    const selLbl = typeof selOpt === 'object' ? selOpt.label : selOpt;
+    let html = '<div class="_38-a _38-b5 RA-p4 oz-select" data-path="' + path + '" data-value="' + escapeAttr(selVal) + '">' +
+      '<div class="_46-a _46-a5 _46-b7" errors="">' +  // 官方有 errors="" 属性
+        '<div class="_46-b0 _46-b2">' +
+          '<div class="_29-a _38-a0" role="listbox">' +
+            '<div class="_38-a1 _38-a2">' +
+              '<div class="_38-a6">' +  // 官方 _38-a6 包裹三元素（_38-a7 + input + span）
+                '<div text="' + escapeAttr(selLbl) + '" class="_38-a7">' + escapeHtml(selLbl) + '</div>' +
+                '<input autocomplete="off" title="' + escapeAttr(selLbl) + '" role="combobox" type="text" name="filter" class="_38-b0">' +  // 官方无 readonly
+                '<span class="_38-b7"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" class="_38-b8"><path fill="currentColor" d="m4 6 4 5 4-5H4Z"></path></svg></span>' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="_46-a2 _46-a5"><!----> <!----></div>' +  // 官方 placeholder/error 容器
+        '</div>' +
+      '</div>' +
+      '<div class="oz-select-dropdown" style="display:none;">';
+    for (const opt of options) {
+      const v = (typeof opt === 'object') ? opt.value : opt;
+      const l = (typeof opt === 'object') ? opt.label : opt;
+      html += '<div class="oz-select-option" data-value="' + escapeAttr(v) + '"' + (v === selVal ? ' aria-selected="true"' : '') + '>' + escapeHtml(l) + '</div>';
+    }
+    html += '</div></div>';
+    return html;
+  }
+  function imagePlacementInput(path, value, options) {
+    // 对齐官方 RA-r4 图片选择按钮组：div.RA-r4.RA-p4 > div.RA-r5[_4-a][.RA-s5?] > button._4-a1 > span._4-a3 > div.RA-r6.RA-s{0,1,2,s} > div.RA-s3 > img.RA-r8._23-a + div.RA-s4
+    // RA-s=full, RA-s0=1/2, RA-s1=1/3, RA-s2=1/4；RA-s5=active（border-color:#005bff）
+    // 注意：RA-p4 与 RA-r4 在同一 div 上（官方 div.RA-r4.RA-p4）
+    // 官方按钮 span 类名：所有按钮统一使用 _4-d8（无论是否选中态，选中态通过父容器 .RA-s5 标识）
+    // 官方用 640x640.png 示意图，此处用透明 GIF + 灰色背景占位（无图片资源）
+    const sizeClassMap = { 'width_full': 'RA-s', 'width_half': 'RA-s0', 'width_one_third': 'RA-s1', 'width_one_fourth': 'RA-s2', 'to_the_edge': 'RA-s', 'fill': 'RA-s0' };
+    const PLACEHOLDER_IMG = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+    let html = '<div class="RA-r4 RA-p4">';
+    for (const opt of options) {
+      const v = (typeof opt === 'object') ? opt.value : opt;
+      const l = (typeof opt === 'object') ? opt.label : opt;
+      const sizeClass = sizeClassMap[v] || 'RA-s';
+      const isActive = v === value;
+      // 官方逻辑：所有按钮 span 统一使用 _4-d8，选中态通过父容器 .RA-s5 标识（之前的 _4-d9 修复是错误的）
+      html += '<div class="RA-r5 _4-a' + (isActive ? ' RA-s5' : '') + '">' +
+        '<button class="_4-a1" type="button" data-path="' + path + '" data-value="' + v + '" data-type="image-placement" style="border-radius:8px;">' +
+          '<span class="_4-a3 _4-c6 _4-d8" style="border-radius:8px;">' +
+            '<div class="RA-r6 ' + sizeClass + '">' +
+              '<div class="RA-s3"><img loading="lazy" src="' + PLACEHOLDER_IMG + '" class="RA-r8 _23-a" style="background:#d2d9df;width:100%;height:100%;"></div>' +
+              '<div class="RA-s4">' + l + '</div>' +
+            '</div>' +
+          '</span>' +
+        '</button>' +
+      '</div>';
+    }
+    html += '</div>';
+    return html;
+  }
+  function toggleInput(path, checked, label) {
+    // 对齐官方 OzCheckbox (theme="toggle") DOM 结构：
+    // label._6-a[_6-a3 _6-a5 _6-a7?] > input._6-a2(hidden) + div._6-a4(control/toggle track) + div._6-a0(description/label)
+    // _6-a5 _6-a4 为 toggle 36x20 圆角；_6-a5 _6-a4:before 为 thumb（白色 16x16 圆点）
+    // _6-a7(checked) 时 _6-a4 背景变 #005bff，:before 平移 translateX(100%)
+    return '<label class="_6-a _6-a3 _6-a5' + (checked ? ' _6-a7' : '') + '">' +
+      '<input type="checkbox" data-path="' + path + '" data-type="toggle" class="_6-a2"' + (checked ? ' checked' : '') + '>' +
+      '<div class="_6-a4"></div>' +
+      (label ? '<div class="_6-a0">' + label + '</div>' : '') +
+    '</label>';
+  }
+  function colorPickerInput(path, value) {
+    // 对齐官方颜色选择器（OzonColorPicker）：div.RA-q9.RA-p4 > div.RA.RA-m{3,4,5,6}[.RA-r0?] × 4
+    // 官方颜色类（main.css）：.RA-m3{bg:#001a34} .RA-m4{bg:#3d5165} .RA-m5{bg:#808d9a} .RA-m6{bg:#fff}
+    // 官方选中态：选中颜色 div 添加 .RA-r0 类（border:2px solid #005bff）
+    // 官方颜色值映射：color1→深色, color2→灰色, color3→浅灰, color4→白色
+    // 对应文本颜色类：color1→RA-m, color2→RA-m0, color3→RA-m1, color4→RA-m2
+    const colorClassMap = {
+      'color1': 'RA-m3', // 深色（#001a34）
+      'color2': 'RA-m4', // 灰色（#3d5165）
+      'color3': 'RA-m5', // 浅灰（#808d9a）
+      'color4': 'RA-m6'  // 白色（#fff）
+    };
+    const colorValues = ['color1', 'color2', 'color3', 'color4'];
+    let html = '<div class="RA-q9 RA-p4">';
+    for (let i = 0; i < colorValues.length; i++) {
+      const cv = colorValues[i];
+      const colorClass = colorClassMap[cv];
+      const isActive = cv === value;
+      // 官方逻辑：选中态在第一个颜色 div 上添加 .RA-r0（从用户选中元素可见）
+      // 简化实现：选中态通过 .RA-r0 类标识（border:2px solid #005bff）
+      html += '<div class="RA-r ' + colorClass + (isActive ? ' RA-r0' : '') + '" data-path="' + path + '" data-value="' + cv + '" data-type="color-picker"></div>';
+    }
+    html += '</div>';
+    return html;
+  }
+  function textAlignInput(path, value) {
+    // 对齐官方文本对齐按钮组（OzonAlignPicker）：div.RA-r1.RA-p4 > div.RA-r2[_4-a][.RA-r3?] > button._4-a1 > span._4-a3._4-c6._4-d8 > svg._4-d6(32x32) + span._4-e0
+    // 官方对齐值：left（左对齐）、center（居中）、right（右对齐）
+    // 官方选中态：第一个按钮容器添加 .RA-r3 类（border高亮）
+    // 官方 SVG 图标：32x32，三行文本示意（不同宽度表示对齐方式）
+    // 左对齐 SVG: M5 7a1 1 0 0 1 1-1h20...（左对齐图标）
+    // 居中 SVG: M5 7a1 1 0 0 1 1-1h20...（居中图标，中间行较短）
+    // 右对齐 SVG: M5 7a1 1 0 0 1 1-1h20...（右对齐图标，最后一行最短）
+    const ALIGN_SVGS = {
+      'left': 'M5 7a1 1 0 0 1 1-1h20a1 1 0 1 1 0 2H6a1 1 0 0 1-1-1m0 6a1 1 0 0 1 1-1h12a1 1 0 1 1 0 2H6a1 1 0 0 1-1-1m0 6a1 1 0 0 1 1-1h20a1 1 0 1 1 0 2H6a1 1 0 0 1-1-1m0 6a1 1 0 0 1 1-1h12a1 1 0 1 1 0 2H6a1 1 0 0 1-1-1',
+      'center': 'M5 7a1 1 0 0 1 1-1h20a1 1 0 1 1 0 2H6a1 1 0 0 1-1-1m4 6a1 1 0 0 1 1-1h12a1 1 0 1 1 0 2H10a1 1 0 0 1-1-1m-4 6a1 1 0 0 1 1-1h20a1 1 0 1 1 0 2H6a1 1 0 0 1-1-1m4 6a1 1 0 0 1 1-1h12a1 1 0 1 1 0 2H10a1 1 0 0 1-1-1',
+      'right': 'M5 7a1 1 0 0 1 1-1h20a1 1 0 1 1 0 2H6a1 1 0 0 1-1-1m7 6a1 1 0 0 1 1-1h12a1 1 0 1 1 0 2H13a1 1 0 0 1-1-1m-7 6a1 1 0 0 1 1-1h20a1 1 0 1 1 0 2H6a1 1 0 0 1-1-1m8 6a1 1 0 0 1 1-1h12a1 1 0 1 1 0 2H14a1 1 0 0 1-1-1'
+    };
+    const alignValues = ['left', 'center', 'right'];
+    let html = '<div class="RA-r1 RA-p4">';
+    for (let i = 0; i < alignValues.length; i++) {
+      const av = alignValues[i];
+      const isActive = av === value;
+      // 官方逻辑：选中态通过 .RA-r3 类标识（border高亮）
+      html += '<div class="RA-r2 _4-a' + (isActive ? ' RA-r3' : '') + '">' +
+        '<button class="_4-a1" type="button" data-path="' + path + '" data-value="' + av + '" data-type="text-align" style="border-radius:8px;">' +
+          '<span class="_4-a3 _4-c6 _4-d8" style="border-radius:8px;">' +
+            '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" class="_4-d6"><path fill="currentColor" d="' + ALIGN_SVGS[av] + '"/></svg>' +
+            '<span class="_4-e0"></span>' +
+          '</span>' +
+        '</button>' +
+      '</div>';
+    }
+    html += '</div>';
+    return html;
+  }
+
+  // ===== 表单事件绑定 =====
+  function bindFormEvents() {
+    // 返回按钮
+    document.getElementById('backBtn').onclick = showBlocks;
+    // 平台切换器（Display: Desktop/Mobile）—— 对齐官方 RA-a5a 结构，通过 data-pf 识别
+    settingsForm.querySelectorAll('.RA-a5a [data-pf]').forEach(tab => {
+      tab.addEventListener('click', () => {
+        // 官方逻辑：切换平台后同时更新表单字段（src/srcMobile）和画布宽度（RA-g4）
+        state.platform = tab.dataset.pf;
+        renderSettingsForm(); // 更新表单字段（Desktop/Mobile字段切换）
+        renderCanvas(); // 更新画布宽度（Mobile=375px, Desktop=100%）
+      });
+    });
+    // OzSelect 下拉交互（对齐官方 OzSelect 行为，含搜索过滤）
+    settingsForm.querySelectorAll('.oz-select').forEach(sel => {
+      const container = sel.querySelector('._46-b0');
+      const dropdown = sel.querySelector('.oz-select-dropdown');
+      const display = sel.querySelector('._38-a7');
+      const input = sel.querySelector('._38-b0');
+      const path = sel.dataset.path;
+      // 保存所有选项的原始数据用于过滤
+      const allOptions = Array.from(dropdown.querySelectorAll('.oz-select-option')).map(opt => ({
+        value: opt.dataset.value,
+        label: opt.textContent,
+        el: opt
+      }));
+      // 当前显示的文本（用于 blur 时恢复）
+      let currentLabel = display.textContent;
+      // 打开下拉
+      function openDropdown() {
+        settingsForm.querySelectorAll('.oz-select-dropdown').forEach(d => d.style.display = 'none');
+        dropdown.style.display = 'block';
+        // 重置过滤，显示所有选项
+        allOptions.forEach(o => o.el.style.display = '');
+        // 清空 combobox 输入，方便搜索
+        input.value = '';
+      }
+      // 关闭下拉
+      function closeDropdown() {
+        dropdown.style.display = 'none';
+        // 恢复 combobox 的 title 和显示文本
+        input.value = '';
+        input.setAttribute('title', currentLabel);
+        display.textContent = currentLabel;
+        display.setAttribute('text', currentLabel);
+      }
+      // 点击整个控件区域展开/关闭（listbox + combobox + chevron 统一处理）
+      container.addEventListener('click', (e) => {
+        // 如果点击的是 combobox input，不切换状态（让 input 处理 focus）
+        if (e.target === input) return;
+        const isOpen = dropdown.style.display === 'block';
+        if (isOpen) {
+          closeDropdown();
+        } else {
+          openDropdown();
+          // 自动聚焦 combobox 方便输入
+          setTimeout(() => input.focus(), 0);
+        }
+      });
+      // combobox focus：打开下拉
+      input.addEventListener('focus', () => {
+        if (dropdown.style.display !== 'block') {
+          openDropdown();
+        }
+      });
+      // combobox input：实时过滤选项
+      input.addEventListener('input', () => {
+        const query = input.value.toLowerCase().trim();
+        // 同步更新 display 文本（官方行为：输入时显示输入内容）
+        display.textContent = input.value;
+        display.setAttribute('text', input.value);
+        let hasVisible = false;
+        allOptions.forEach(o => {
+          const match = !query || o.label.toLowerCase().includes(query);
+          o.el.style.display = match ? '' : 'none';
+          if (match) hasVisible = true;
+        });
+        // 如果无匹配选项，显示提示
+        if (!hasVisible && !dropdown.querySelector('.oz-select-no-match')) {
+          const noMatch = document.createElement('div');
+          noMatch.className = 'oz-select-option oz-select-no-match';
+          noMatch.style.color = 'var(--oz-text-muted)';
+          noMatch.style.cursor = 'default';
+          noMatch.textContent = 'No match';
+          dropdown.appendChild(noMatch);
+        } else if (hasVisible) {
+          const noMatch = dropdown.querySelector('.oz-select-no-match');
+          if (noMatch) noMatch.remove();
+        }
+      });
+      // combobox keydown：Enter 选择第一个可见选项，Escape 关闭
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          const firstVisible = allOptions.find(o => o.el.style.display !== 'none');
+          if (firstVisible) {
+            firstVisible.el.click();
+          }
+        } else if (e.key === 'Escape') {
+          closeDropdown();
+          input.blur();
+        }
+      });
+      // combobox blur：延迟关闭下拉（允许选项点击事件先触发）
+      input.addEventListener('blur', () => {
+        setTimeout(() => {
+          if (!sel.contains(document.activeElement)) {
+            closeDropdown();
+          }
+        }, 150);
+      });
+      // 点击选项更新值
+      allOptions.forEach(o => {
+        o.el.addEventListener('click', () => {
+          const v = o.value;
+          const l = o.label;
+          sel.dataset.value = v;
+          currentLabel = l;
+          display.textContent = l;
+          display.setAttribute('text', l);
+          input.setAttribute('title', l);
+          input.value = '';
+          allOptions.forEach(o2 => o2.el.removeAttribute('aria-selected'));
+          o.el.setAttribute('aria-selected', 'true');
+          dropdown.style.display = 'none';
+          setByPath(state, path, v);
+          // type 字段特殊处理：重新生成默认 blocks
+          if (path.endsWith('.type')) {
+            const w = state.content[state.selectedIndex];
+            if (w) {
+              if (w.widgetName === 'raShowcase') {
+                const def = WIDGET_DEFS.find(d => d.widgetName === 'raShowcase' && d.key === v);
+                if (def) {
+                  w.type = v;
+                  w.blocks = def.create().blocks;
+                } else {
+                  w.type = v;
+                  const blockCount = v === 'tileM' ? 4 : 2;
+                  const imgSrc = IMG[v] || IMG.chess;
+                  w.blocks = [];
+                  for (let bi = 0; bi < blockCount; bi++) {
+                    w.blocks.push({ img: imgObj(imgSrc), imgLink: "", title: titleObj("Заголовок", "size4"), text: textObj() });
+                  }
+                }
+                state.selectedBlock = -1;
+              } else if (w.widgetName === 'raVideo') {
+                // raVideo 类型切换：youtube ↔ embedded，初始化对应字段
+                w.type = v;
+                if (v === 'youtube' && !w.id) {
+                  w.id = 'dQw4w9WgXcQ';
+                } else if (v === 'embedded' && (!w.sources || w.sources.length === 0)) {
+                  w.sources = [{ type: 'video/mp4', src: '' }];
+                  if (!w.width) w.width = 300;
+                  if (!w.height) w.height = 168;
+                }
+              }
+              renderSettingsForm();
+              renderCanvas();
+            }
+          } else {
+            renderCanvas();
+          }
+        });
+      });
+    });
+    // 点击外部关闭 OzSelect 下拉
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.oz-select')) {
+        settingsForm.querySelectorAll('.oz-select-dropdown').forEach(d => d.style.display = 'none');
+      }
+    });
+    // Image placement 图片按钮组（RA-r4）—— 点击按钮设置对应值
+    settingsForm.querySelectorAll('.RA-r4 button[data-type="image-placement"]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const path = btn.dataset.path;
+        const value = btn.dataset.value;
+        setByPath(state, path, value);
+        renderSettingsForm();
+        renderCanvas();
+      });
+    });
+    // 颜色选择器（RA-q9）—— 点击颜色圆点设置对应值
+    settingsForm.querySelectorAll('.RA-q9 .RA-r[data-type="color-picker"]').forEach(dot => {
+      dot.addEventListener('click', () => {
+        const path = dot.dataset.path;
+        const value = dot.dataset.value;
+        setByPath(state, path, value);
+        renderSettingsForm();
+        renderCanvas();
+      });
+    });
+    // 文本对齐按钮组（RA-r1）—— 点击对齐按钮设置对应值
+    settingsForm.querySelectorAll('.RA-r1 button[data-type="text-align"]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const path = btn.dataset.path;
+        const value = btn.dataset.value;
+        setByPath(state, path, value);
+        renderSettingsForm();
+        renderCanvas();
+      });
+    });
+    // 字段变更（排除 image-placement/color-picker/text-align 按钮和 OzSelect 内部元素，避免重复绑定）
+    settingsForm.querySelectorAll('[data-path]:not([data-type="image-placement"]):not([data-type="color-picker"]):not([data-type="text-align"])').forEach(el => {
+      // 跳过 OzSelect 内部元素（listbox/combobox/option 由 OzSelect 交互处理）
+      if (el.closest('.oz-select')) return;
+      const evt = el.tagName === 'SELECT' ? 'change' : (el.type === 'checkbox' ? 'change' : 'input');
+      el.addEventListener(evt, () => {
+        const path = el.dataset.path;
+        let val = el.type === 'checkbox' ? el.checked : el.value;
+        // reverse 字段：字符串转布尔
+        if (path.endsWith('.reverse')) val = (val === 'true' || val === true);
+        if (el.type === 'number' || (el.dataset.path.match(/\.width|\.height/))) val = parseFloat(val) || 0;
+        setByPath(state, path, val);
+        // 官方 OzCheckbox toggle：隐藏 input._6-a2 的 change 不会自动更新 label._6-a 的 _6-a7(checked) 类
+        // 需手动同步视觉状态（_6-a7 控制 _6-a4 背景色和 :before 平移）
+        if (el.type === 'checkbox' && el.classList.contains('_6-a2')) {
+          const label = el.closest('._6-a');
+          if (label) {
+            if (el.checked) label.classList.add('_6-a7');
+            else label.classList.remove('_6-a7');
+          }
+        }
+        renderCanvas();
+      });
+    });
+    // block 折叠
+    settingsForm.querySelectorAll('.block-panel-header').forEach(h => {
+      h.addEventListener('click', (e) => {
+        if (e.target.closest('.block-del')) return;
+        const bi = parseInt(h.dataset.toggle);
+        const body = settingsForm.querySelector('[data-block-body="' + bi + '"]');
+        if (body) {
+          body.classList.toggle('expanded');
+          h.classList.toggle('expanded');
+        }
+        // 同步选中状态到右侧预览
+        if (body && body.classList.contains('expanded')) {
+          state.selectedBlock = bi;
+          // 清除其他高亮
+          settingsForm.querySelectorAll('.block-panel-highlight').forEach(p => p.classList.remove('block-panel-highlight'));
+          const panel = settingsForm.querySelector('[data-block="' + bi + '"]');
+          if (panel) panel.classList.add('block-panel-highlight');
+          // 更新右侧预览高亮
+          canvas.querySelectorAll('.block-active').forEach(el => el.classList.remove('block-active'));
+          const activeBlock = canvas.querySelector('.canvas-item.selected [data-block-idx="' + bi + '"]');
+          if (activeBlock) activeBlock.classList.add('block-active');
+        }
+      });
+    });
+    // block 删除
+    settingsForm.querySelectorAll('.block-del').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const bi = parseInt(btn.dataset.blockDel);
+        const w = state.content[state.selectedIndex];
+        if (w && w.blocks) {
+          w.blocks.splice(bi, 1);
+          state.selectedBlock = -1;
+          renderSettingsForm();
+          renderCanvas();
+        }
+      });
+    });
+    // 添加 block
+    const addBtn = settingsForm.querySelector('[data-add-block]');
+    if (addBtn) {
+      addBtn.addEventListener('click', () => {
+        const w = state.content[state.selectedIndex];
+        if (!w || !w.blocks) return;
+        if (w.widgetName === 'raShowcase') {
+          const type = w.type;
+          if (type === 'roll') w.blocks.push({ imgLink: "", img: imgObj(IMG.roll, IMG.mobile, "width_full") });
+          else if (type === 'chess') w.blocks.push({ img: imgObj(IMG.chess), imgLink: "", title: titleObj(), text: textObj(), reverse: false });
+          else w.blocks.push({ img: imgObj(IMG[w.type] || IMG.chess), imgLink: "", title: titleObj(), text: textObj() });
+        } else if (w.widgetName === 'list') {
+          w.blocks.push({ text: textObj(), title: titleObj("Заголовок", "size4") });
+        }
+        renderSettingsForm();
+        renderCanvas();
+      });
+    }
+  }
+
+  // ===== 路径取值/赋值 =====
+  function getByPath(obj, path) {
+    const parts = path.replace(/\[(\d+)\]/g, '.$1').split('.');
+    let cur = obj;
+    for (const p of parts) { if (cur == null) return undefined; cur = cur[p]; }
+    return cur;
+  }
+  function setByPath(obj, path, value) {
+    const parts = path.replace(/\[(\d+)\]/g, '.$1').split('.');
+    let cur = obj;
+    for (let i = 0; i < parts.length - 1; i++) {
+      const p = parts[i];
+      if (cur[p] == null) cur[p] = isNaN(parts[i + 1]) ? {} : [];
+      cur = cur[p];
+    }
+    cur[parts[parts.length - 1]] = value;
+  }
+
+  // ===== 工具栏事件 =====
+  document.querySelector('.RA-f8').addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-act]');
+    if (!btn) return;
+    if (btn.disabled) return;
+    const act = btn.dataset.act;
+    if (act === 'copy') {
+      // 官方 copyJSON：复制 JSON 到剪贴板
+      const json = JSON.stringify({ content: state.content, version: state.version }, null, 2);
+      navigator.clipboard.writeText(json).then(() => flashStatus('Copied to clipboard', 'ok')).catch(() => {
+        const ta = document.createElement('textarea');
+        ta.value = json; document.body.appendChild(ta); ta.select();
+        document.execCommand('copy'); document.body.removeChild(ta);
+        flashStatus('Copied', 'ok');
+      });
+    } else if (act === 'export') {
+      // 官方 showPreview：可视化预览
+      openPreviewModal();
+    } else if (act === 'download') {
+      // 官方 pressButton（Скачать）：下载 JSON 文件
+      downloadJson();
+    }
+  });
+
+  function flashStatus(msg, type) {
+    log(msg);
+  }
+
+  // ===== 预览模态框（官方 Предпросмотр） =====
+  const previewModal = document.getElementById('previewModal');
+  const previewBody = document.getElementById('previewBody');
+  function openPreviewModal() {
+    let html = '';
+    for (const w of state.content) {
+      html += renderWidget(w, -1);
+    }
+    previewBody.innerHTML = html || '<div style="text-align:center;color:var(--oz-text-muted);padding:40px;">No content to preview</div>';
+    previewModal.classList.add('active');
+  }
+  document.getElementById('modalClose').onclick = () => previewModal.classList.remove('active');
+  document.getElementById('modalClose2').onclick = () => previewModal.classList.remove('active');
+
+  // ===== 下载 JSON 文件（官方 Скачать） =====
+  function downloadJson() {
+    const json = JSON.stringify({ content: state.content, version: state.version }, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'rich-content.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    flashStatus('Downloaded', 'ok');
+  }
+
+  // ===== 预览渲染（复用之前的函数） =====
+  function escapeHtml(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  function escapeAttr(s) { return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+  function renderWidget(widget, idx) {
+    const name = widget.widgetName;
+    let body = '';
+    try {
+      if (name === 'raShowcase') body = renderShowcase(widget, idx);
+      else if (name === 'raTextBlock') body = renderTextBlock(widget, idx);
+      else if (name === 'raVideo') body = renderVideo(widget, idx);
+      else if (name === 'raTable') body = renderTable(widget, idx);
+      else if (name === 'list') body = renderList(widget, idx);
+      else body = '<div style="padding:20px;text-align:center;color:var(--oz-text-muted);">Unsupported widget: ' + escapeHtml(name) + '</div>';
+    } catch (e) {
+      body = '<div style="padding:20px;color:var(--oz-danger);">Render error: ' + escapeHtml(e.message) + '</div>';
+    }
+    return body;
+  }
+
+  function renderShowcase(widget, wi) {
+    const type = widget.type;
+    const blocks = widget.blocks || [];
+    const isMobile = state.platform === 'mobile';
+    // 官方图片 src 选择：移动用 srcMobile，桌面用 src
+    const getSrc = (img) => isMobile ? (img.srcMobile || img.src || '') : (img.src || '');
+    // 官方 To(link)：验证 ozon.ru 链接
+    const validLink = (link) => { if (!link) return ''; try { const u = new URL(link); return (u.hostname === 'ozon.ru' || u.hostname.endsWith('.ozon.ru')) ? link : ''; } catch(e) { return ''; } };
+    // 官方 Oo(ROLL, blockIndex, totalBlocks)：多块时首块顶圆角、末块底圆角、中间无圆角
+    const borderClass = (bi) => {
+      if (blocks.length <= 1) return 'ra-br-all';
+      if (bi === 0) return 'ra-br-top';
+      if (bi === blocks.length - 1) return 'ra-br-bottom';
+      return 'ra-br-none';
+    };
+    // 官方 lo[ROLL]="l"：roll 类型圆角较大
+    const radiusClass = TYPES_WITH_BACKGROUND.includes(type) ? 'ra-radius-m' : 'ra-radius-l';
+
+    // roll：纯图片展示，官方渲染为 RaImg 组件
+    // 官方 DOM 结构：RA-v9(root) + RA-w2(borderRadius_l) + RA-x(position_width_full) + RA-h(centered) > RA-w6(wrap) > img.RA-w7
+    if (type === 'roll') {
+      let html = '';
+      blocks.forEach((b, bi) => {
+        const img = b.img || {};
+        const src = getSrc(img);
+        if (!src) return;
+        // 官方 RaImg borderRadius：s=RA-w0, m=RA-w1, l=RA-w2；borderRadiusType：top=RA-w3, bottom=RA-w4, nothing=RA-w5
+        const radius = TYPES_WITH_BACKGROUND.includes(type) ? 'RA-w1' : 'RA-w2';
+        let borderType = '';
+        if (blocks.length > 1) {
+          if (bi === 0) borderType = ' RA-w3';
+          else if (bi === blocks.length - 1) borderType = ' RA-w4';
+          else borderType = ' RA-w5';
+        }
+        let imgHtml = '<div class="RA-v9 ' + radius + borderType + ' RA-x RA-h" data-block-idx="' + bi + '">' +
+          '<div class="RA-w6">' +
+            '<img loading="lazy" src="' + escapeAttr(src) + '" alt="' + escapeAttr(img.alt || '') + '" class="RA-w7 _23-a">' +
+          '</div>' +
+        '</div>';
+        // 官方 d(img, imgLink)：有效链接包裹 <a>
+        const link = validLink(b.imgLink);
+        if (link) imgHtml = '<a href="' + escapeAttr(link) + '" target="_blank" rel="noopener">' + imgHtml + '</a>';
+        html += imgHtml;
+      });
+      return html;
+    }
+    // billboard：大图 + 标题 + 文本，官方结构 RA-h0 > (RA-v9 RA-w2 RA-x RA-h1 RA-h > RA-w6 > img) + (RA-i3 文本块)
+    if (type === 'billboard') {
+      let html = '';
+      blocks.forEach((b, bi) => {
+        const img = b.img || {};
+        const src = getSrc(img);
+        html += '<div class="RA-h0" data-block-idx="' + bi + '">';
+        if (src) {
+          // 官方图片容器：RA-v9 RA-w2 RA-x RA-h1 RA-h（注意：RA-h1而非RA-h2）
+          html += '<div class="RA-v9 RA-w2 RA-x RA-h1 RA-h">' +
+            '<div class="RA-w6">' +
+              '<img loading="lazy" src="' + escapeAttr(src) + '" alt="' + escapeAttr(img.alt || '') + '" class="RA-w7 _23-a">' +
+            '</div>' +
+          '</div>';
+        }
+        // 官方文本块：RA-i3 RA-i6 RA-j1 RA-i3 > (RA-i7 > RA-l2 RA-l6 标题) + (div > RA-l2 RA-l4 正文)
+        // 官方文本块：RA-i3 RA-i6 RA-j1 RA-i3 > (RA-i7 > contenteditable title) + (div > contenteditable body)
+        // 官方 contenteditable div 使用 RA-l2/RA-l6(title)/RA-l4(body)/RA-m/RA-m7/RA-u6/RA-u7/RA-u8 类
+        // size/color/align 类由 renderTitleHtml/renderTextHtml 自动映射为官方 RA-l*/RA-m*/RA-m7-9 类
+        if (b.title || b.text) {
+          html += '<div class="RA-i3 RA-i6 RA-j1 RA-i3">';
+          if (b.title) {
+            // 使用 renderTitleHtml 并传递 dataPath，支持 contenteditable 同步
+            html += '<div class="RA-i7">' +
+              renderTitleHtml(b.title, '', 'content[' + wi + '].blocks[' + bi + '].title') +
+              '<div class="_29-a RA-v6" style="left: 0px; top: 0px;"> </div>' +
+            '</div>';
+          }
+          if (b.text) {
+            // 使用 renderTextHtml 并传递 dataPath，支持 contenteditable 同步
+            html += '<div>' +
+              renderTextHtml(b.text, '', 'content[' + wi + '].blocks[' + bi + '].text') +
+              '<div class="_29-a RA-v6" style="left: 0px; top: 0px;"> </div>' +
+            '</div>';
+          }
+          html += '</div>';
+        }
+        html += '</div>';
+      });
+      return html;
+    }
+    // chess：图文左右排列，使用 ra-chess
+    if (type === 'chess') {
+      let html = '<div class="ra-chess">';
+      blocks.forEach((b, bi) => {
+        const img = b.img || {};
+        const src = getSrc(img);
+        const reverse = b.reverse ? ' ra-chess__advantage_reverse' : '';
+        html += '<div class="ra-chess__advantage' + reverse + '" data-block-idx="' + bi + '">';
+        if (src) html += '<div class="ra-chess__img-wrapper ' + radiusClass + '"><img src="' + escapeAttr(src) + '" alt="' + escapeAttr(img.alt || '') + '" class="ra-chess__img"></div>';
+        html += '<div class="ra-chess__description">';
+        if (b.title) html += renderTitleHtml(b.title, 'ra-chess__title', 'content[' + wi + '].blocks[' + bi + '].title');
+        if (b.text) html += renderTextHtml(b.text, 'ra-chess__text', 'content[' + wi + '].blocks[' + bi + '].text');
+        html += '</div></div>';
+      });
+      html += '</div>';
+      return html;
+    }
+    // tileL：三列图，使用 ra-triple（flex:0 0 calc(33.33333% - 10.66667px)）
+    if (type === 'tileL') {
+      let html = '<div class="ra-triple">';
+      blocks.forEach((b, bi) => {
+        const img = b.img || {};
+        const src = getSrc(img);
+        html += '<div class="ra-triple__advantage" data-block-idx="' + bi + '">';
+        if (src) html += '<div class="ra-triple__img-wrapper ' + radiusClass + '"><img src="' + escapeAttr(src) + '" alt="' + escapeAttr(img.alt || '') + '" class="ra-triple__img"></div>';
+        if (b.title) html += renderTitleHtml(b.title, 'ra-triple__subtitle', 'content[' + wi + '].blocks[' + bi + '].title');
+        if (b.text) html += renderTextHtml(b.text, 'ra-triple__text', 'content[' + wi + '].blocks[' + bi + '].text');
+        html += '</div>';
+      });
+      html += '</div>';
+      return html;
+    }
+    // tileXL / tileM：多列图，使用 ra-multiple（flex:1 1 25%）
+    if (type === 'tileXL' || type === 'tileM') {
+      let html = '<div class="ra-multiple">';
+      blocks.forEach((b, bi) => {
+        const img = b.img || {};
+        const src = getSrc(img);
+        html += '<div class="ra-multiple__advantage" data-block-idx="' + bi + '">';
+        if (src) html += '<div class="ra-multiple__img-wrapper ' + radiusClass + '"><img src="' + escapeAttr(src) + '" alt="' + escapeAttr(img.alt || '') + '" class="ra-multiple__img"></div>';
+        if (b.title) html += renderTitleHtml(b.title, 'ra-multiple__subtitle', 'content[' + wi + '].blocks[' + bi + '].title');
+        if (b.text) html += renderTextHtml(b.text, 'ra-multiple__text', 'content[' + wi + '].blocks[' + bi + '].text');
+        html += '</div>';
+      });
+      html += '</div>';
+      return html;
+    }
+    // tileSecondary：图标列，使用 ra-icons（background:#eff3f6）
+    if (type === 'tileSecondary') {
+      let html = '<div class="ra-icons">';
+      blocks.forEach((b, bi) => {
+        const img = b.img || {};
+        const src = getSrc(img);
+        html += '<div class="ra-icons__advantage" data-block-idx="' + bi + '">';
+        if (src) html += '<img src="' + escapeAttr(src) + '" alt="' + escapeAttr(img.alt || '') + '" class="ra-icons__img">';
+        if (b.title) html += renderTitleHtml(b.title, 'ra-icons__title', 'content[' + wi + '].blocks[' + bi + '].title');
+        if (b.text) html += renderTextHtml(b.text, 'ra-icons__text-grey', 'content[' + wi + '].blocks[' + bi + '].text');
+        html += '</div>';
+      });
+      html += '</div>';
+      return html;
+    }
+    return '<div style="padding:20px;text-align:center;color:var(--oz-text-muted);">Unknown type: ' + escapeHtml(type || '?') + '</div>';
+  }
+  function renderTextBlock(widget, wi) {
+    let html = '<div class="ra-text-block">';
+    if (widget.title) html += renderTitleHtml(widget.title, 'ra-text-block__title', 'content[' + wi + '].title');
+    if (widget.text) html += renderTextHtml(widget.text, 'ra-text-block__text', 'content[' + wi + '].text');
+    html += '</div>';
+    return html;
+  }
+  function renderVideo(widget, wi) {
+    let html = '<div class="ra-video">';
+    if (widget.type === 'youtube') {
+      html += '<div class="ra-video__wrapper"><iframe class="ra-video__frame" src="https://www.youtube.com/embed/' + escapeAttr(widget.id || '') + '" frameborder="0" allowfullscreen></iframe></div>';
+    } else {
+      const sources = widget.sources || [];
+      let src = '';
+      for (const s of sources) { if (s.type === 'video/mp4') { src = s.src; break; } }
+      if (!src && sources.length) src = sources[0].src;
+      if (src) html += '<div class="ra-video__wrapper"><video class="ra-video__frame" controls><source src="' + escapeAttr(src) + '"></video></div>';
+      else html += '<div style="padding:20px;color:var(--oz-text-muted);text-align:center;">No video source</div>';
+    }
+    html += '</div>';
+    return html;
+  }
+  function renderTable(widget, wi) {
+    const title = widget.title;
+    const table = widget.table || {};
+    const head = table.head || [];
+    const body = table.body || [];
+    let html = '<div class="ra-table__wrapper">';
+    // 表格标题使用 renderTitleHtml（支持 contenteditable）
+    if (title) html += renderTitleHtml(title, 'ra-table__subtitle', 'content[' + wi + '].title');
+    html += '<table class="ra-table">';
+    if (head.length) {
+      html += '<thead><tr>';
+      for (const cell of head) {
+        let c = '';
+        if (cell.items) for (const i of cell.items) { if (i.type === 'text') c += i.content; }
+        html += '<th style="text-align:' + (cell.contentAlign || 'left') + ';">' + escapeHtml(c) + '</th>';
+      }
+      html += '</tr></thead>';
+    }
+    html += '<tbody>';
+    for (const row of body) {
+      html += '<tr>';
+      if (Array.isArray(row)) for (const cell of row) {
+        let c = '';
+        if (cell.items) for (const i of cell.items) { if (i.type === 'text') c += i.content; }
+        html += '<td>' + escapeHtml(c) + '</td>';
+      }
+      html += '</tr>';
+    }
+    html += '</tbody></table></div>';
+    return html;
+  }
+  function renderList(widget, wi) {
+    const theme = widget.theme;
+    const blocks = widget.blocks || [];
+    const tag = theme === 'number' ? 'ol' : 'ul';
+    const listStyle = theme === 'number' ? 'decimal' : (theme === 'image' ? 'none' : 'disc');
+    let html = '<div class="ra-list"><' + tag + ' style="padding-left:24px;list-style:' + listStyle + ';">';
+    blocks.forEach((b, bi) => {
+      const img = b.img;
+      let imgHtml = '';
+      if (theme === 'image' && img && img.src) imgHtml = '<img src="' + escapeAttr(img.src) + '" style="width:32px;height:32px;vertical-align:middle;margin-right:8px;">';
+      html += '<li class="ra-list__item" data-block-idx="' + bi + '">';
+      // 列表标题和正文使用 renderTitleHtml/renderTextHtml（支持 contenteditable）
+      if (b.title) html += '<div class="ra-list__item-title">' + imgHtml + renderTitleHtml(b.title, 'ra-list__title-inline', 'content[' + wi + '].blocks[' + bi + '].title') + '</div>';
+      if (b.text) html += renderTextHtml(b.text, 'ra-list__item-text', 'content[' + wi + '].blocks[' + bi + '].text');
+      html += '</li>';
+    });
+    html += '</' + tag + '></div>';
+    return html;
+  }
+
+  // ===== 官方类名映射（对齐 main.css 中 RA-l*/RA-m*/RA-m7-9 类系统）=====
+  // size1-7 → RA-l3-l9（font-size:12px-38px）
+  const SIZE_CLASS = { 'size1':'RA-l3', 'size2':'RA-l4', 'size3':'RA-l5', 'size4':'RA-l6', 'size5':'RA-l7', 'size6':'RA-l8', 'size7':'RA-l9' };
+  // color1-4 → RA-m/RA-m0/RA-m1/RA-m2（color:#001a34/#3d5165/#808d9a/#fff）
+  const COLOR_CLASS = { 'color1':'RA-m', 'color2':'RA-m0', 'color3':'RA-m1', 'color4':'RA-m2' };
+  // left/center/right → RA-m7/RA-m8/RA-m9
+  const ALIGN_CLASS = { 'left':'RA-m7', 'center':'RA-m8', 'right':'RA-m9' };
+
+  // ===== 通用：渲染 title（应用 size/color/align + contenteditable + data-path） =====
+  // 官方编辑模式：contenteditable div 只有 RA-* 类，不带 widget 专属类
+  // 官方 editableClasses = gr({root:RA-l2, size, color, align}) + RA-u6 + RA-u7(标题) + RA-u8
+  // widget 专属类（如 ra-chess__title）仅在预览模式的 <p> 标签上使用，编辑模式不使用
+  // RA-l2=base, RA-u6=word-wrap, RA-u7=line-clamp:2(仅标题), RA-u8=caret-color:#005bff
+  function renderTitleHtml(title, baseClass, dataPath) {
+    if (!title) return '';
+    const size = title.size || 'size4';
+    const color = title.color || 'color1';
+    const align = title.align || 'left';
+    const pathAttr = dataPath ? ' data-path="' + dataPath + '"' : '';
+    // 官方类顺序：RA-l2 + size(RA-l3-9) + color(RA-m/m0/m1/m2) + align(RA-m7/m8/m9) + RA-u6 + RA-u7(标题独有) + RA-u8
+    const cls = 'RA-l2 ' + (SIZE_CLASS[size]||'RA-l6') + ' ' + (COLOR_CLASS[color]||'RA-m') + ' ' + (ALIGN_CLASS[align]||'RA-m7') + ' RA-u6 RA-u7 RA-u8';
+    return '<div contenteditable="true"' + pathAttr + ' class="' + cls + '">' + renderTextItems(title) + '</div>';
+  }
+  // ===== 通用：渲染 text（应用 size/color/align + contenteditable + data-path） =====
+  // 官方编辑模式：contenteditable div 只有 RA-* 类，不带 widget 专属类
+  // 注意：正文没有 RA-u7（无 line-clamp:2 限制）
+  function renderTextHtml(text, baseClass, dataPath) {
+    if (!text) return '';
+    const size = text.size || 'size2';
+    const color = text.color || 'color1';
+    const align = text.align || 'left';
+    const pathAttr = dataPath ? ' data-path="' + dataPath + '"' : '';
+    const cls = 'RA-l2 ' + (SIZE_CLASS[size]||'RA-l4') + ' ' + (COLOR_CLASS[color]||'RA-m') + ' ' + (ALIGN_CLASS[align]||'RA-m7') + ' RA-u6 RA-u8';
+    return '<div contenteditable="true"' + pathAttr + ' class="' + cls + '">' + renderTextItems(text) + '</div>';
+  }
+  // ===== 通用：从 items 提取文本内容（支持 text/link/br） =====
+  function renderTextItems(obj) {
+    if (!obj || !obj.items) return '';
+    let html = '';
+    for (const item of obj.items) {
+      if (item.type === 'text') html += escapeHtml(item.content || '');
+      else if (item.type === 'link') html += '<a href="' + escapeAttr(item.href || '') + '" target="_blank" rel="noopener" style="color:#005bff;text-decoration:underline;">' + escapeHtml(item.content || '') + '</a>';
+      else if (item.type === 'br') html += '<br>';
+    }
+    return html;
+  }
+
+  // ===== postMessage 通信 =====
+  window.addEventListener('message', (event) => {
+    const msg = event.data || {};
+    if (typeof msg !== 'object' || !msg.type) return;
+    log('收到消息:', msg.type);
+    if (msg.type === 'LOAD_JSON') {
+      try {
+        const data = JSON.parse(msg.json || '{}');
+        state.content = data.content || [];
+        state.version = data.version || 0.3;
+        state.selectedIndex = -1;
+        showBlocks();
+        event.source.postMessage({ type: 'LOAD_RESULT', success: true, count: state.content.length }, '*');
+      } catch (e) {
+        event.source.postMessage({ type: 'LOAD_RESULT', success: false, error: e.message }, '*');
+      }
+    } else if (msg.type === 'GET_JSON') {
+      const json = JSON.stringify({ content: state.content, version: state.version });
+      event.source.postMessage({ type: 'JSON_RESULT', json, requestId: msg.requestId }, '*');
+    } else if (msg.type === 'PING') {
+      event.source.postMessage({ type: 'PONG' }, '*');
+    }
+  });
+
+  // ===== 初始化 =====
+  function init() {
+    renderWidgetList();
+    showBlocks();
+    renderCanvas();
+    window.parent.postMessage({ type: 'EDITOR_READY', widgetCount: state.content.length }, '*');
+    log('Editor ready (visual mode)');
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+})();
+</script>
+</body>
+</html>

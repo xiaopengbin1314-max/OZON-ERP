@@ -1,0 +1,1031 @@
+{
+    "content": [
+        {
+            "widgetName": "list",
+            "theme": "bullet",
+            "blocks": [
+                {
+                    "text": {
+                        "size": "size2",
+                        "align": "left",
+                        "color": "color1",
+                        "items": [
+                            {
+                                "type": "text",
+                                "content": "Пожалуйста, замените этот текст Вашим собственным. Просто кликните по тексту, чтобы добавить свой текст. Настройте стиль текста в левой колонке."
+                            }
+                        ]
+                    },
+                    "title": {
+                        "items": [
+                            {
+                                "type": "text",
+                                "content": "Заголовок"
+                            }
+                        ],
+                        "size": "size4",
+                        "align": "left",
+                        "color": "color1"
+                    }
+                },
+                {
+                    "text": {
+                        "size": "size2",
+                        "align": "left",
+                        "color": "color1",
+                        "items": [
+                            {
+                                "type": "text",
+                                "content": "Пожалуйста, замените этот текст Вашим собственным. Просто кликните по тексту, чтобы добавить свой текст. Настройте стиль текста в левой колонке."
+                            }
+                        ]
+                    },
+                    "title": {
+                        "items": [
+                            {
+                                "type": "text",
+                                "content": "Заголовок"
+                            }
+                        ],
+                        "size": "size4",
+                        "align": "left",
+                        "color": "color1"
+                    }
+                },
+                {
+                    "text": {
+                        "size": "size2",
+                        "align": "left",
+                        "color": "color1",
+                        "items": [
+                            {
+                                "type": "text",
+                                "content": "Пожалуйста, замените этот текст Вашим собственным. Просто кликните по тексту, чтобы добавить свой текст. Настройте стиль текста в левой колонке."
+                            }
+                        ]
+                    },
+                    "title": {
+                        "items": [
+                            {
+                                "type": "text",
+                                "content": "Заголовок"
+                            }
+                        ],
+                        "size": "size4",
+                        "align": "left",
+                        "color": "color1"
+                    }
+                }
+            ]
+        },
+        {
+            "widgetName": "list",
+            "theme": "number",
+            "blocks": [
+                {
+                    "text": {
+                        "size": "size2",
+                        "align": "left",
+                        "color": "color1",
+                        "items": [
+                            {
+                                "type": "text",
+                                "content": "Пожалуйста, замените этот текст Вашим собственным. Просто кликните по тексту, чтобы добавить свой текст. Настройте стиль текста в левой колонке."
+                            }
+                        ]
+                    },
+                    "title": {
+                        "items": [
+                            {
+                                "type": "text",
+                                "content": "Заголовок"
+                            }
+                        ],
+                        "size": "size4",
+                        "align": "left",
+                        "color": "color1"
+                    }
+                },
+                {
+                    "text": {
+                        "size": "size2",
+                        "align": "left",
+                        "color": "color1",
+                        "items": [
+                            {
+                                "type": "text",
+                                "content": "Пожалуйста, замените этот текст Вашим собственным. Просто кликните по тексту, чтобы добавить свой текст. Настройте стиль текста в левой колонке."
+                            }
+                        ]
+                    },
+                    "title": {
+                        "items": [
+                            {
+                                "type": "text",
+                                "content": "Заголовок"
+                            }
+                        ],
+                        "size": "size4",
+                        "align": "left",
+                        "color": "color1"
+                    }
+                },
+                {
+                    "text": {
+                        "size": "size2",
+                        "align": "left",
+                        "color": "color1",
+                        "items": [
+                            {
+                                "type": "text",
+                                "content": "Пожалуйста, замените этот текст Вашим собственным. Просто кликните по тексту, чтобы добавить свой текст. Настройте стиль текста в левой колонке."
+                            }
+                        ]
+                    },
+                    "title": {
+                        "items": [
+                            {
+                                "type": "text",
+                                "content": "Заголовок"
+                            }
+                        ],
+                        "size": "size4",
+                        "align": "left",
+                        "color": "color1"
+                    }
+                }
+            ]
+        },
+        {
+            "widgetName": "list",
+            "theme": "image",
+            "blocks": [
+                {
+                    "text": {
+                        "size": "size2",
+                        "align": "left",
+                        "color": "color1",
+                        "items": [
+                            {
+                                "type": "text",
+                                "content": "Пожалуйста, замените этот текст Вашим собственным. Просто кликните по тексту, чтобы добавить свой текст. Настройте стиль текста в левой колонке."
+                            }
+                        ]
+                    },
+                    "title": {
+                        "items": [
+                            {
+                                "type": "text",
+                                "content": "Заголовок"
+                            }
+                        ],
+                        "size": "size4",
+                        "align": "left",
+                        "color": "color1"
+                    },
+                    "img": {
+                        "src": "https://cdn1.ozone.ru/s3/rich-content/placeholder/50x50_v2.png",
+                        "srcMobile": "https://cdn1.ozone.ru/s3/rich-content/placeholder/40x40_v2.png",
+                        "alt": "",
+                        "position": "to_the_edge",
+                        "positionMobile": "to_the_edge"
+                    }
+                },
+                {
+                    "text": {
+                        "size": "size2",
+                        "align": "left",
+                        "color": "color1",
+                        "items": [
+                            {
+                                "type": "text",
+                                "content": "Пожалуйста, замените этот текст Вашим собственным. Просто кликните по тексту, чтобы добавить свой текст. Настройте стиль текста в левой колонке."
+                            }
+                        ]
+                    },
+                    "title": {
+                        "items": [
+                            {
+                                "type": "text",
+                                "content": "Заголовок"
+                            }
+                        ],
+                        "size": "size4",
+                        "align": "left",
+                        "color": "color1"
+                    },
+                    "img": {
+                        "src": "https://cdn1.ozone.ru/s3/rich-content/placeholder/50x50_v2.png",
+                        "srcMobile": "https://cdn1.ozone.ru/s3/rich-content/placeholder/40x40_v2.png",
+                        "alt": "",
+                        "position": "to_the_edge",
+                        "positionMobile": "to_the_edge"
+                    }
+                },
+                {
+                    "text": {
+                        "size": "size2",
+                        "align": "left",
+                        "color": "color1",
+                        "items": [
+                            {
+                                "type": "text",
+                                "content": "Пожалуйста, замените этот текст Вашим собственным. Просто кликните по тексту, чтобы добавить свой текст. Настройте стиль текста в левой колонке."
+                            }
+                        ]
+                    },
+                    "title": {
+                        "items": [
+                            {
+                                "type": "text",
+                                "content": "Заголовок"
+                            }
+                        ],
+                        "size": "size4",
+                        "align": "left",
+                        "color": "color1"
+                    },
+                    "img": {
+                        "src": "https://cdn1.ozone.ru/s3/rich-content/placeholder/50x50_v2.png",
+                        "srcMobile": "https://cdn1.ozone.ru/s3/rich-content/placeholder/40x40_v2.png",
+                        "alt": "",
+                        "position": "to_the_edge",
+                        "positionMobile": "to_the_edge"
+                    }
+                }
+            ]
+        },
+        {
+            "widgetName": "raTextBlock",
+            "title": {
+                "items": [
+                    {
+                        "type": "text",
+                        "content": "Заголовок"
+                    }
+                ],
+                "size": "size5",
+                "color": "color1"
+            },
+            "theme": "primary",
+            "padding": "type2",
+            "gapSize": "m",
+            "text": {
+                "size": "size2",
+                "align": "left",
+                "color": "color1",
+                "items": [
+                    {
+                        "type": "text",
+                        "content": "Пожалуйста, замените этот текст Вашим собственным. Просто кликните по тексту, чтобы добавить свой текст. Настройте стиль текста в левой колонке."
+                    }
+                ]
+            }
+        },
+        {
+            "widgetName": "raShowcase",
+            "type": "roll",
+            "blocks": [
+                {
+                    "imgLink": "",
+                    "img": {
+                        "src": "https://cdn1.ozone.ru/s3/rich-content/placeholder/1416x708.png",
+                        "srcMobile": "https://cdn1.ozone.ru/s3/rich-content/placeholder/640x640.png",
+                        "alt": "",
+                        "position": "width_full",
+                        "positionMobile": "width_full"
+                    }
+                }
+            ]
+        },
+        {
+            "widgetName": "raShowcase",
+            "type": "billboard",
+            "blocks": [
+                {
+                    "imgLink": "",
+                    "img": {
+                        "src": "https://cdn1.ozone.ru/s3/rich-content/placeholder/1416x708.png",
+                        "srcMobile": "https://cdn1.ozone.ru/s3/rich-content/placeholder/640x640.png",
+                        "alt": "",
+                        "position": "width_full",
+                        "positionMobile": "width_full"
+                    },
+                    "title": {
+                        "items": [
+                            {
+                                "type": "text",
+                                "content": "Заголовок"
+                            }
+                        ],
+                        "size": "size4",
+                        "align": "left",
+                        "color": "color1"
+                    },
+                    "text": {
+                        "size": "size2",
+                        "align": "left",
+                        "color": "color1",
+                        "items": [
+                            {
+                                "type": "text",
+                                "content": "Пожалуйста, замените этот текст Вашим собственным. Просто кликните по тексту, чтобы добавить свой текст. Настройте стиль текста в левой колонке."
+                            }
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "widgetName": "raShowcase",
+            "type": "chess",
+            "blocks": [
+                {
+                    "img": {
+                        "src": "https://cdn1.ozone.ru/s3/rich-content/placeholder/708x708_4.png",
+                        "srcMobile": "https://cdn1.ozone.ru/s3/rich-content/placeholder/640x640.png",
+                        "alt": "",
+                        "position": "to_the_edge",
+                        "positionMobile": "to_the_edge"
+                    },
+                    "imgLink": "",
+                    "title": {
+                        "items": [
+                            {
+                                "type": "text",
+                                "content": "Заголовок"
+                            }
+                        ],
+                        "size": "size4",
+                        "align": "left",
+                        "color": "color1"
+                    },
+                    "text": {
+                        "size": "size2",
+                        "align": "left",
+                        "color": "color1",
+                        "items": [
+                            {
+                                "type": "text",
+                                "content": "Пожалуйста, замените этот текст Вашим собственным. Просто кликните по тексту, чтобы добавить свой текст. Настройте стиль текста в левой колонке."
+                            }
+                        ]
+                    },
+                    "reverse": false
+                },
+                {
+                    "img": {
+                        "src": "https://cdn1.ozone.ru/s3/rich-content/placeholder/708x708_4.png",
+                        "srcMobile": "https://cdn1.ozone.ru/s3/rich-content/placeholder/640x640.png",
+                        "alt": "",
+                        "position": "to_the_edge",
+                        "positionMobile": "to_the_edge"
+                    },
+                    "imgLink": "",
+                    "title": {
+                        "items": [
+                            {
+                                "type": "text",
+                                "content": "Заголовок"
+                            }
+                        ],
+                        "size": "size4",
+                        "align": "left",
+                        "color": "color1"
+                    },
+                    "text": {
+                        "size": "size2",
+                        "align": "left",
+                        "color": "color1",
+                        "items": [
+                            {
+                                "type": "text",
+                                "content": "Пожалуйста, замените этот текст Вашим собственным. Просто кликните по тексту, чтобы добавить свой текст. Настройте стиль текста в левой колонке."
+                            }
+                        ]
+                    },
+                    "reverse": true
+                },
+                {
+                    "img": {
+                        "src": "https://cdn1.ozone.ru/s3/rich-content/placeholder/708x708_4.png",
+                        "srcMobile": "https://cdn1.ozone.ru/s3/rich-content/placeholder/640x640.png",
+                        "alt": "",
+                        "position": "to_the_edge",
+                        "positionMobile": "to_the_edge"
+                    },
+                    "imgLink": "",
+                    "title": {
+                        "items": [
+                            {
+                                "type": "text",
+                                "content": "Заголовок"
+                            }
+                        ],
+                        "size": "size4",
+                        "align": "left",
+                        "color": "color1"
+                    },
+                    "text": {
+                        "size": "size2",
+                        "align": "left",
+                        "color": "color1",
+                        "items": [
+                            {
+                                "type": "text",
+                                "content": "Пожалуйста, замените этот текст Вашим собственным. Просто кликните по тексту, чтобы добавить свой текст. Настройте стиль текста в левой колонке."
+                            }
+                        ]
+                    },
+                    "reverse": false
+                }
+            ]
+        },
+        {
+            "widgetName": "raShowcase",
+            "type": "tileXL",
+            "blocks": [
+                {
+                    "img": {
+                        "src": "https://cdn1.ozone.ru/s3/rich-content/placeholder/700x700.png",
+                        "srcMobile": "https://cdn1.ozone.ru/s3/rich-content/placeholder/640x640.png",
+                        "alt": "",
+                        "position": "to_the_edge",
+                        "positionMobile": "to_the_edge"
+                    },
+                    "imgLink": "",
+                    "title": {
+                        "items": [
+                            {
+                                "type": "text",
+                                "content": "Заголовок"
+                            }
+                        ],
+                        "size": "size4",
+                        "align": "left",
+                        "color": "color1"
+                    },
+                    "text": {
+                        "size": "size2",
+                        "align": "left",
+                        "color": "color1",
+                        "items": [
+                            {
+                                "type": "text",
+                                "content": "Пожалуйста, замените этот текст Вашим собственным. Просто кликните по тексту, чтобы добавить свой текст. Настройте стиль текста в левой колонке."
+                            }
+                        ]
+                    }
+                },
+                {
+                    "img": {
+                        "src": "https://cdn1.ozone.ru/s3/rich-content/placeholder/700x700.png",
+                        "srcMobile": "https://cdn1.ozone.ru/s3/rich-content/placeholder/640x640.png",
+                        "alt": "",
+                        "position": "to_the_edge",
+                        "positionMobile": "to_the_edge"
+                    },
+                    "imgLink": "",
+                    "title": {
+                        "items": [
+                            {
+                                "type": "text",
+                                "content": "Заголовок"
+                            }
+                        ],
+                        "size": "size4",
+                        "align": "left",
+                        "color": "color1"
+                    },
+                    "text": {
+                        "size": "size2",
+                        "align": "left",
+                        "color": "color1",
+                        "items": [
+                            {
+                                "type": "text",
+                                "content": "Пожалуйста, замените этот текст Вашим собственным. Просто кликните по тексту, чтобы добавить свой текст. Настройте стиль текста в левой колонке."
+                            }
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "widgetName": "raShowcase",
+            "type": "tileL",
+            "blocks": [
+                {
+                    "img": {
+                        "src": "https://cdn1.ozone.ru/s3/rich-content/placeholder/440x440.png",
+                        "srcMobile": "https://cdn1.ozone.ru/s3/rich-content/placeholder/640x640.png",
+                        "alt": "",
+                        "position": "to_the_edge",
+                        "positionMobile": "to_the_edge"
+                    },
+                    "imgLink": "",
+                    "title": {
+                        "items": [
+                            {
+                                "type": "text",
+                                "content": "Заголовок"
+                            }
+                        ],
+                        "size": "size4",
+                        "align": "left",
+                        "color": "color1"
+                    },
+                    "text": {
+                        "size": "size2",
+                        "align": "left",
+                        "color": "color1",
+                        "items": [
+                            {
+                                "type": "text",
+                                "content": "Пожалуйста, замените этот текст Вашим собственным. Просто кликните по тексту, чтобы добавить свой текст. Настройте стиль текста в левой колонке."
+                            }
+                        ]
+                    }
+                },
+                {
+                    "img": {
+                        "src": "https://cdn1.ozone.ru/s3/rich-content/placeholder/440x440.png",
+                        "srcMobile": "https://cdn1.ozone.ru/s3/rich-content/placeholder/640x640.png",
+                        "alt": "",
+                        "position": "to_the_edge",
+                        "positionMobile": "to_the_edge"
+                    },
+                    "imgLink": "",
+                    "title": {
+                        "items": [
+                            {
+                                "type": "text",
+                                "content": "Заголовок"
+                            }
+                        ],
+                        "size": "size4",
+                        "align": "left",
+                        "color": "color1"
+                    },
+                    "text": {
+                        "size": "size2",
+                        "align": "left",
+                        "color": "color1",
+                        "items": [
+                            {
+                                "type": "text",
+                                "content": "Пожалуйста, замените этот текст Вашим собственным. Просто кликните по тексту, чтобы добавить свой текст. Настройте стиль текста в левой колонке."
+                            }
+                        ]
+                    }
+                },
+                {
+                    "img": {
+                        "src": "https://cdn1.ozone.ru/s3/rich-content/placeholder/440x440.png",
+                        "srcMobile": "https://cdn1.ozone.ru/s3/rich-content/placeholder/640x640.png",
+                        "alt": "",
+                        "position": "to_the_edge",
+                        "positionMobile": "to_the_edge"
+                    },
+                    "imgLink": "",
+                    "title": {
+                        "items": [
+                            {
+                                "type": "text",
+                                "content": "Заголовок"
+                            }
+                        ],
+                        "size": "size4",
+                        "align": "left",
+                        "color": "color1"
+                    },
+                    "text": {
+                        "size": "size2",
+                        "align": "left",
+                        "color": "color1",
+                        "items": [
+                            {
+                                "type": "text",
+                                "content": "Пожалуйста, замените этот текст Вашим собственным. Просто кликните по тексту, чтобы добавить свой текст. Настройте стиль текста в левой колонке."
+                            }
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "widgetName": "raShowcase",
+            "type": "tileM",
+            "blocks": [
+                {
+                    "img": {
+                        "src": "https://cdn1.ozone.ru/s3/rich-content/placeholder/306x306.png",
+                        "srcMobile": "https://cdn1.ozone.ru/s3/rich-content/placeholder/640x640.png",
+                        "alt": "",
+                        "position": "to_the_edge",
+                        "positionMobile": "to_the_edge"
+                    },
+                    "imgLink": "",
+                    "title": {
+                        "items": [
+                            {
+                                "type": "text",
+                                "content": "Заголовок"
+                            }
+                        ],
+                        "size": "size4",
+                        "align": "left",
+                        "color": "color1"
+                    },
+                    "text": {
+                        "size": "size2",
+                        "align": "left",
+                        "color": "color1",
+                        "items": [
+                            {
+                                "type": "text",
+                                "content": "Пожалуйста, замените этот текст Вашим собственным. Просто кликните по тексту, чтобы добавить свой текст. Настройте стиль текста в левой колонке."
+                            }
+                        ]
+                    }
+                },
+                {
+                    "img": {
+                        "src": "https://cdn1.ozone.ru/s3/rich-content/placeholder/306x306.png",
+                        "srcMobile": "https://cdn1.ozone.ru/s3/rich-content/placeholder/640x640.png",
+                        "alt": "",
+                        "position": "to_the_edge",
+                        "positionMobile": "to_the_edge"
+                    },
+                    "imgLink": "",
+                    "title": {
+                        "items": [
+                            {
+                                "type": "text",
+                                "content": "Заголовок"
+                            }
+                        ],
+                        "size": "size4",
+                        "align": "left",
+                        "color": "color1"
+                    },
+                    "text": {
+                        "size": "size2",
+                        "align": "left",
+                        "color": "color1",
+                        "items": [
+                            {
+                                "type": "text",
+                                "content": "Пожалуйста, замените этот текст Вашим собственным. Просто кликните по тексту, чтобы добавить свой текст. Настройте стиль текста в левой колонке."
+                            }
+                        ]
+                    }
+                },
+                {
+                    "img": {
+                        "src": "https://cdn1.ozone.ru/s3/rich-content/placeholder/306x306.png",
+                        "srcMobile": "https://cdn1.ozone.ru/s3/rich-content/placeholder/640x640.png",
+                        "alt": "",
+                        "position": "to_the_edge",
+                        "positionMobile": "to_the_edge"
+                    },
+                    "imgLink": "",
+                    "title": {
+                        "items": [
+                            {
+                                "type": "text",
+                                "content": "Заголовок"
+                            }
+                        ],
+                        "size": "size4",
+                        "align": "left",
+                        "color": "color1"
+                    },
+                    "text": {
+                        "size": "size2",
+                        "align": "left",
+                        "color": "color1",
+                        "items": [
+                            {
+                                "type": "text",
+                                "content": "Пожалуйста, замените этот текст Вашим собственным. Просто кликните по тексту, чтобы добавить свой текст. Настройте стиль текста в левой колонке."
+                            }
+                        ]
+                    }
+                },
+                {
+                    "img": {
+                        "src": "https://cdn1.ozone.ru/s3/rich-content/placeholder/306x306.png",
+                        "srcMobile": "https://cdn1.ozone.ru/s3/rich-content/placeholder/640x640.png",
+                        "alt": "",
+                        "position": "to_the_edge",
+                        "positionMobile": "to_the_edge"
+                    },
+                    "imgLink": "",
+                    "title": {
+                        "items": [
+                            {
+                                "type": "text",
+                                "content": "Заголовок"
+                            }
+                        ],
+                        "size": "size4",
+                        "align": "left",
+                        "color": "color1"
+                    },
+                    "text": {
+                        "size": "size2",
+                        "align": "left",
+                        "color": "color1",
+                        "items": [
+                            {
+                                "type": "text",
+                                "content": "Пожалуйста, замените этот текст Вашим собственным. Просто кликните по тексту, чтобы добавить свой текст. Настройте стиль текста в левой колонке."
+                            }
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "widgetName": "raShowcase",
+            "type": "tileSecondary",
+            "blocks": [
+                {
+                    "img": {
+                        "src": "https://cdn1.ozone.ru/s3/rich-content/placeholder/50x50_v2.png",
+                        "srcMobile": "https://cdn1.ozone.ru/s3/rich-content/placeholder/40x40_v2.png",
+                        "alt": "",
+                        "position": "to_the_edge",
+                        "positionMobile": "to_the_edge"
+                    },
+                    "imgLink": "",
+                    "title": {
+                        "items": [
+                            {
+                                "type": "text",
+                                "content": "Заголовок"
+                            }
+                        ],
+                        "size": "size4",
+                        "align": "left",
+                        "color": "color1"
+                    },
+                    "text": {
+                        "size": "size2",
+                        "align": "left",
+                        "color": "color1",
+                        "items": [
+                            {
+                                "type": "text",
+                                "content": "Пожалуйста, замените этот текст Вашим собственным. Просто кликните по тексту, чтобы добавить свой текст. Настройте стиль текста в левой колонке."
+                            }
+                        ]
+                    }
+                },
+                {
+                    "img": {
+                        "src": "https://cdn1.ozone.ru/s3/rich-content/placeholder/50x50_v2.png",
+                        "srcMobile": "https://cdn1.ozone.ru/s3/rich-content/placeholder/40x40_v2.png",
+                        "alt": "",
+                        "position": "to_the_edge",
+                        "positionMobile": "to_the_edge"
+                    },
+                    "imgLink": "",
+                    "title": {
+                        "items": [
+                            {
+                                "type": "text",
+                                "content": "Заголовок"
+                            }
+                        ],
+                        "size": "size4",
+                        "align": "left",
+                        "color": "color1"
+                    },
+                    "text": {
+                        "size": "size2",
+                        "align": "left",
+                        "color": "color1",
+                        "items": [
+                            {
+                                "type": "text",
+                                "content": "Пожалуйста, замените этот текст Вашим собственным. Просто кликните по тексту, чтобы добавить свой текст. Настройте стиль текста в левой колонке."
+                            }
+                        ]
+                    }
+                },
+                {
+                    "img": {
+                        "src": "https://cdn1.ozone.ru/s3/rich-content/placeholder/50x50_v2.png",
+                        "srcMobile": "https://cdn1.ozone.ru/s3/rich-content/placeholder/40x40_v2.png",
+                        "alt": "",
+                        "position": "to_the_edge",
+                        "positionMobile": "to_the_edge"
+                    },
+                    "imgLink": "",
+                    "title": {
+                        "items": [
+                            {
+                                "type": "text",
+                                "content": "Заголовок"
+                            }
+                        ],
+                        "size": "size4",
+                        "align": "left",
+                        "color": "color1"
+                    },
+                    "text": {
+                        "size": "size2",
+                        "align": "left",
+                        "color": "color1",
+                        "items": [
+                            {
+                                "type": "text",
+                                "content": "Пожалуйста, замените этот текст Вашим собственным. Просто кликните по тексту, чтобы добавить свой текст. Настройте стиль текста в левой колонке."
+                            }
+                        ]
+                    }
+                },
+                {
+                    "img": {
+                        "src": "https://cdn1.ozone.ru/s3/rich-content/placeholder/50x50_v2.png",
+                        "srcMobile": "https://cdn1.ozone.ru/s3/rich-content/placeholder/40x40_v2.png",
+                        "alt": "",
+                        "position": "to_the_edge",
+                        "positionMobile": "to_the_edge"
+                    },
+                    "imgLink": "",
+                    "title": {
+                        "items": [
+                            {
+                                "type": "text",
+                                "content": "Заголовок"
+                            }
+                        ],
+                        "size": "size4",
+                        "align": "left",
+                        "color": "color1"
+                    },
+                    "text": {
+                        "size": "size2",
+                        "align": "left",
+                        "color": "color1",
+                        "items": [
+                            {
+                                "type": "text",
+                                "content": "Пожалуйста, замените этот текст Вашим собственным. Просто кликните по тексту, чтобы добавить свой текст. Настройте стиль текста в левой колонке."
+                            }
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "widgetName": "raVideo",
+            "type": "youtube",
+            "id": "40wxt5OUkmE"
+        },
+        {
+            "widgetName": "raVideo",
+            "type": "embedded",
+            "width": 300,
+            "height": 168.5,
+            "sources": [
+                {
+                    "type": "video/webm",
+                    "src": "https://cdn1.ozone.ru/s3/rich-content/video-examples/flower.webm"
+                },
+                {
+                    "type": "video/mp4",
+                    "src": "https://cdn1.ozone.ru/s3/rich-content/video-examples/flower.mp4"
+                }
+            ]
+        },
+        {
+            "widgetName": "raTable",
+            "title": {
+                "items": [
+                    {
+                        "type": "text",
+                        "content": "Заголовок"
+                    }
+                ],
+                "size": "size4",
+                "align": "left",
+                "color": "color1"
+            },
+            "table": {
+                "head": [
+                    {
+                        "img": {
+                            "src": "https://cdn1.ozone.ru/s3/rich-content/placeholder/96x96.png",
+                            "srcMobile": "https://cdn1.ozone.ru/s3/rich-content/placeholder/96x96.png",
+                            "position": "to_the_edge",
+                            "positionMobile": "to_the_edge",
+                            "alt": ""
+                        },
+                        "items": [
+                            {
+                                "type": "text",
+                                "content": "Название колонки"
+                            }
+                        ],
+                        "contentAlign": "left"
+                    },
+                    {
+                        "img": {
+                            "src": "https://cdn1.ozone.ru/s3/rich-content/placeholder/96x96.png",
+                            "srcMobile": "https://cdn1.ozone.ru/s3/rich-content/placeholder/96x96.png",
+                            "position": "to_the_edge",
+                            "positionMobile": "to_the_edge",
+                            "alt": ""
+                        },
+                        "items": [
+                            {
+                                "type": "text",
+                                "content": "Название колонки"
+                            }
+                        ],
+                        "contentAlign": "left"
+                    }
+                ],
+                "body": [
+                    [
+                        {
+                            "items": [
+                                {
+                                    "type": "text",
+                                    "content": "Пожалуйста, замените этот текст Вашим собственным. Просто кликните по тексту, чтобы добавить свой текст. Настройте стиль текста в левой колонке."
+                                }
+                            ]
+                        },
+                        {
+                            "items": [
+                                {
+                                    "type": "text",
+                                    "content": "Пожалуйста, замените этот текст Вашим собственным. Просто кликните по тексту, чтобы добавить свой текст. Настройте стиль текста в левой колонке."
+                                }
+                            ]
+                        }
+                    ],
+                    [
+                        {
+                            "items": [
+                                {
+                                    "type": "text",
+                                    "content": "Пожалуйста, замените этот текст Вашим собственным. Просто кликните по тексту, чтобы добавить свой текст. Настройте стиль текста в левой колонке."
+                                }
+                            ]
+                        },
+                        {
+                            "items": [
+                                {
+                                    "type": "text",
+                                    "content": "Пожалуйста, замените этот текст Вашим собственным. Просто кликните по тексту, чтобы добавить свой текст. Настройте стиль текста в левой колонке."
+                                }
+                            ]
+                        }
+                    ],
+                    [
+                        {
+                            "items": [
+                                {
+                                    "type": "text",
+                                    "content": "Пожалуйста, замените этот текст Вашим собственным. Просто кликните по тексту, чтобы добавить свой текст. Настройте стиль текста в левой колонке."
+                                }
+                            ]
+                        },
+                        {
+                            "items": [
+                                {
+                                    "type": "text",
+                                    "content": "Пожалуйста, замените этот текст Вашим собственным. Просто кликните по тексту, чтобы добавить свой текст. Настройте стиль текста в левой колонке."
+                                }
+                            ]
+                        }
+                    ],
+                    [
+                        {
+                            "items": [
+                                {
+                                    "type": "text",
+                                    "content": "Пожалуйста, замените этот текст Вашим собственным. Просто кликните по тексту, чтобы добавить свой текст. Настройте стиль текста в левой колонке."
+                                }
+                            ]
+                        },
+                        {
+                            "items": [
+                                {
+                                    "type": "text",
+                                    "content": "Пожалуйста, замените этот текст Вашим собственным. Просто кликните по тексту, чтобы добавить свой текст. Настройте стиль текста в левой колонке."
+                                }
+                            ]
+                        }
+                    ]
+                ]
+            }
+        }
+    ],
+    "version": 0.3
+}

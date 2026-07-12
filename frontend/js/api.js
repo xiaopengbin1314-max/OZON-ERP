@@ -633,6 +633,16 @@ const Api = (() => {
     return request(`/api/online-products/${id}`);
   }
 
+  function getOnlineProductEditData(id) {
+    return request(`/api/online-products/${id}/edit-data`, { timeout: 60000 });
+  }
+
+  function saveOnlineProductEditData(id, data) {
+    return request(`/api/online-products/${id}/edit-data`, {
+      method: 'PUT', body: JSON.stringify(data), timeout: 180000,
+    });
+  }
+
   /** 全量同步店铺商品（从 Ozon 拉取并 upsert 到本地，可能较慢） */
   function syncOnlineProducts(data = {}) {
     return request('/api/online-products/sync', {
@@ -768,6 +778,8 @@ const Api = (() => {
     getOnlineProducts,
     getOnlineProductStats,
     getOnlineProduct,
+    getOnlineProductEditData,
+    saveOnlineProductEditData,
     syncOnlineProducts,
     syncOnlineProduct,
     updateOnlineProduct,

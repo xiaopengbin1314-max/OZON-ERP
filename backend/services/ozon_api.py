@@ -766,8 +766,55 @@ def get_product_info(product_id=None, offer_id=None, client_id=None, api_key=Non
     if not body:
         raise OzonAPIError('必须提供 product_id 或 offer_id 之一')
 
-    result = _call_ozon_api('/v3/product/info', body, client_id, api_key)
+    # /v3/product/info 已下线；单品查询统一复用仍可用的 list 接口。
+    if body.get('product_id'):
+        rows = get_product_info_list([body['product_id']], client_id, api_key)
+        return rows[0] if rows else {}
+    result = _call_ozon_api('/v3/product/info/list', {
+        'offer_id': [body['offer_id']],
+    }, client_id, api_key)
+    rows = result.get('items') or []
+    return rows[0] if rows else {}
+
+
+def get_product_attributes(product_id, client_id=None, api_key=None):
+    """读取已发布商品的完整属性，供在线商品反向编辑回填。"""
+    result = _call_ozon_api('/v4/product/info/attributes', {
+        'filter': {'product_id': [str(product_id)]},
+        'limit': 100,
+        'last_id': '',
+    }, client_id, api_key)
+    rows = result.get('result') or result.get('items') or []
+    if isinstance(rows, dict):
+        return rows.get('items', []) or []
+    return rows if isinstance(rows, list) else []
+
+
+def get_product_description(product_id, client_id=None, api_key=None):
+    """读取 Ozon 商品描述；部分旧商品可能不返回富内容字段。"""
+    result = _call_ozon_api('/v1/product/info/description', {
+        'product_id': int(product_id),
+    }, client_id, api_key)
     return result.get('result', {}) or {}
+
+
+def get_product_content_ratings(skus, client_id=None, api_key=None):
+    """按 Ozon SKU 批量读取内容评分。未计算评分的商品可能不会返回。"""
+    normalized = []
+    for sku in skus or []:
+        try:
+            normalized.append(int(sku))
+        except (TypeError, ValueError):
+            continue
+    if not normalized:
+        return []
+    data = _call_ozon_api('/v1/product/rating-by-sku', {
+        'skus': normalized[:100],
+    }, client_id, api_key)
+    result = data.get('result', data)
+    if isinstance(result, dict):
+        return result.get('products') or result.get('items') or result.get('ratings') or []
+    return result if isinstance(result, list) else []
 
 
 # Ozon 原始状态 → 前端展示状态映射
@@ -780,6 +827,23 @@ OZON_STATUS_TO_FRONTEND = {
     'not_processed': 'ready',       # 待处理（未上架）
     'failed': 'rejected',           # 失败
     'rejected': 'rejected',         # 审核不通过
+    'visible': 'onsale',
+    'in_sale': 'onsale',
+    'ready_to_supply': 'ready',
+    'to_supply': 'ready',
+    'moderated': 'ready',
+    'not_moderated': 'reviewing',
+    'validation_state_pending': 'reviewing',
+    'validation_state_fail': 'rejected',
+    'state_failed': 'rejected',
+    'moderation_block': 'rejected',
+    'disabled': 'offline',
+    'invisible': 'offline',
+    'empty_stock': 'offline',
+    'removed_from_sale': 'offline',
+    'banned': 'offline',
+    'quarantine': 'offline',
+    'archived': 'archived',
 }
 
 
@@ -787,4 +851,4 @@ def map_ozon_status_to_frontend(ozon_status):
     """将 Ozon 原始状态映射为前端 6 种展示状态"""
     if not ozon_status:
         return 'reviewing'
-    return OZON_STATUS_TO_FRONTEND.get(ozon_status, 'reviewing')
+    return OZON_STATUS_TO_FRONTEND.get(str(ozon_status).strip().lower(), 'reviewing')

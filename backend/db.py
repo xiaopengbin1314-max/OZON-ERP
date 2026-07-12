@@ -68,6 +68,11 @@ def _run_migrations(conn):
         conn.execute(
             "ALTER TABLE stores ADD COLUMN seller_cookies TEXT"
         )
+    online_cols = {
+        row['name'] for row in conn.execute("PRAGMA table_info(online_products)")
+    }
+    if 'content_score' not in online_cols:
+        conn.execute("ALTER TABLE online_products ADD COLUMN content_score REAL")
     conn.commit()
 
 

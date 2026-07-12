@@ -100,6 +100,7 @@ function renderCollectPage(route) {
 let currentStatusFilter = '';
 let allProducts = [];
 
+
 /** 已同步商品ID集合：保存后标记，再次编辑时跳过后端拉取；loadProducts 刷新时清空 */
 const _syncedProductIds = new Set();
 
@@ -454,7 +455,7 @@ async function showAddProductDialog() {
  * @param {object} [opts] - { skipFetch?: boolean } 跳过后端拉取（已确认是最新数据时使用）
  */
 async function editProduct(id, opts = {}) {
-  let product = allProducts.find(p => p.id === id);
+  let product = opts.product || allProducts.find(p => p.id === id);
   if (!product) {
     Toast.show('未找到商品', 'error');
     return;
@@ -463,7 +464,7 @@ async function editProduct(id, opts = {}) {
   // 仅在首次编辑（未在 _syncedProductIds 中）时从后端拉取最新数据
   // 保存成功后 ID 会被加入 _syncedProductIds，再次编辑时跳过拉取，避免覆盖用户已保存的修改
   // loadProducts 刷新列表时会清空 _syncedProductIds，确保数据不会无限期过期
-  if (!opts.skipFetch && !_syncedProductIds.has(id)) {
+  if (!opts.product && !opts.skipFetch && !_syncedProductIds.has(id)) {
     console.log('[编辑商品] 首次编辑，从后端拉取最新数据:', { id, syncedCount: _syncedProductIds.size });
     try {
       const resp = await Api.getProduct(id);
@@ -614,6 +615,7 @@ async function editProduct(id, opts = {}) {
 
   // 记录打开时的快照，用于 dirty 检测
   window._editFormInitialSnapshot = _captureEditFormSnapshot(product);
+  const editorProducts = opts.editorMode === 'online' ? [product] : allProducts;
 
   Modal.show({
     title: '编辑商品',
@@ -623,10 +625,10 @@ async function editProduct(id, opts = {}) {
       <div class="edit-product-layout${!window._selectedCategory ? ' cat-step-pending' : ''}">
         <!-- 左侧：产品列表 -->
         <div class="edit-sidebar" id="editSidebar">
-          <div class="edit-sidebar-header">产品列表 (${allProducts.length})</div>
+          <div class="edit-sidebar-header">${opts.editorMode === 'online' ? 'Ozon 在线商品' : '产品列表'} (${editorProducts.length})</div>
           <div class="edit-sidebar-list" id="editSidebarList">
-            ${allProducts.map((p, i) => `
-              <div class="edit-sidebar-item${p.id === id ? ' active' : ''}" data-id="${p.id}" onclick="switchEditProduct('${p.id}')">
+            ${editorProducts.map((p, i) => `
+              <div class="edit-sidebar-item${p.id === id ? ' active' : ''}" data-id="${p.id}" ${opts.editorMode === 'online' ? '' : `onclick="switchEditProduct('${p.id}')"`}>
                 <img class="edit-sidebar-thumb" src="${escapeAttr(proxyImage(p.images?.[0] || ''))}" alt="" loading="lazy" referrerpolicy="no-referrer"
                      onerror="this.onerror=null;this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2260%22 height=%2260%22%3E%3Crect width=%22100%25%22 height=%22100%25%22 fill=%22%23f5f5f5%22/%3E%3Ctext x=%2250%25%22 y=%2255%25%22 text-anchor=%22middle%22 fill=%22%23ccc%22 font-size=%2211%22%3E无图%3C/text%3E%3C/svg%3E'">
                 <div class="edit-sidebar-text">
@@ -799,6 +801,9 @@ async function editProduct(id, opts = {}) {
                 </div>
                 ${(product.categoryMatch && product.categoryMatch.matched && product.category && product.category !== product.categoryMatch.label) ? `<div class="cat-source-hint">原始分类: ${escapeHtml(product.category)}</div>` : ''}
                 <input type="hidden" id="editCategoryValue" value="${escapeAttr((product.categoryMatch && product.categoryMatch.matched) ? (product.categoryMatch.label || '') : (product.category || ''))}">
+                <div class="cat-source-hint" id="editProductType" style="margin-top:6px;">
+                  商品类型：${escapeHtml(product.typeName || (product.typeId ? `Type ID ${product.typeId}` : '-'))}
+                </div>
               </div>
 
               <!-- 公共属性 -->
@@ -1095,8 +1100,12 @@ async function editProduct(id, opts = {}) {
     footer: [
       { text: '取消', class: 'btn-ghost' },
       { text: '一键翻译', class: 'btn-secondary', onClick: () => oneClickTranslate(product) },
-      { text: '保存并发布', class: 'btn-primary', onClick: () => saveAndPublish(product, id) },
-      { text: '保存修改', class: 'btn-ghost', onClick: () => saveProductData(product) },
+      ...(opts.editorMode === 'online'
+        ? [{ text: '更新到 Ozon', class: 'btn-primary', onClick: () => saveOnlineEditorProduct(product, id) }]
+        : [
+            { text: '保存并发布', class: 'btn-primary', onClick: () => saveAndPublish(product, id) },
+            { text: '保存修改', class: 'btn-ghost', onClick: () => saveProductData(product) },
+          ]),
     ],
     onOpen: () => {
       if (window.lucide) lucide.createIcons();
@@ -2304,8 +2313,8 @@ function generateSkuTable() {
   const legacyAttrs = allSkuAttrs.filter(a =>
     a.name && !a.attrCategory && a.values.length > 0
   );
-  // SKU信息属性：跳过 件数/颜色名称（它们由卡片UI管理，不在表格中显示）
-  const INFO_ATTR_SKIP_KEYWORDS = ['一个商品中的件数', '颜色名称', 'название цвета', 'color name'];
+  // 件数由卡片 UI 管理；颜色名称必须作为每个 SKU 的独立信息列显示。
+  const INFO_ATTR_SKIP_KEYWORDS = ['一个商品中的件数'];
   const infoAttrs = allSkuAttrs.filter(a =>
     a.name && a.attrCategory === 'info' &&
     !INFO_ATTR_SKIP_KEYWORDS.some(kw => a.name.toLowerCase().includes(kw.toLowerCase()))
@@ -2372,9 +2381,7 @@ function generateSkuTable() {
   // 构建已保存 SKU 的查找映射：
   // 指纹 = "属性名1:值1||属性名2:值2"（含属性名，避免不同属性但相同值集合时冲突）
   // 同时建立"仅值集合"作为回退 key，类目切换后属性名变化时使用
-  // 注意：只保留笛卡尔积属性名（cartesianAttrs），过滤掉颜色名称等 SKU 信息属性。
-  // 因为新生成的 combos 不包含颜色名称（由 INFO_ATTR_SKIP_KEYWORDS 跳过），
-  // 若不过滤会导致 savedSkuMap 的 key 包含颜色名称，与新 combos 的 key 不匹配，回填失败。
+  // 指纹只保留参与组合的销售属性；颜色名称等 SKU 信息属性按行单独回填。
   const cartesianAttrNames = new Set(cartesianAttrs.map(a => a.name));
   const savedSkuMap = {};
   const savedSkuFallbackMap = {};
@@ -2447,7 +2454,9 @@ function generateSkuTable() {
       .sort();
     const comboKey = pairs.join('||') || '__single__';
     const comboFallbackKey = pairs.map(p => p.split(':')[1]).join('||');
-    const savedSku = savedSkuMap[comboKey] || (comboFallbackKey ? savedSkuFallbackMap[comboFallbackKey] : undefined);
+    const savedSku = savedSkuMap[comboKey]
+      || (comboFallbackKey ? savedSkuFallbackMap[comboFallbackKey] : undefined)
+      || (savedSkus.length === combos.length ? savedSkus[i] : undefined);
 
     // 优先从已保存的SKU数据回填
     // 注意：已保存的 SKU 图片可能不完整（旧数据/单张颜色图），需补齐产品主图，
@@ -2539,7 +2548,12 @@ function generateSkuTable() {
             .sort();
           const comboKey = pairs.join('||') || '__single__';
           const comboFallbackKey = pairs.map(p => p.split(':')[1]).join('||');
-          const savedSku = savedSkuMap[comboKey] || (comboFallbackKey ? savedSkuFallbackMap[comboFallbackKey] : {}) || {};
+          // Ozon 类目属性会异步重载，颜色名称可能由销售属性变为信息属性，
+          // 导致组合指纹变化。行数一致时按原始 Ozon SKU 顺序回退，避免价格/库存丢失。
+          const savedSku = savedSkuMap[comboKey]
+            || (comboFallbackKey ? savedSkuFallbackMap[comboFallbackKey] : undefined)
+            || (savedSkus.length === combos.length ? savedSkus[i] : undefined)
+            || {};
 
           // Keep the full product title in persisted SKU rows. The previous
           // UI truncation leaked into saved data and produced malformed Ozon
@@ -2549,14 +2563,14 @@ function generateSkuTable() {
           const sourcePrice = savedSku.sourcePrice || window._editingProduct?.sourcePrice || '';
           // 售价/划线价：优先使用已保存的值，否则从货源价自动计算（Ozon 售价 = 货源价 × 汇率 × 利润系数）
           const autoCalc = sourcePrice ? calcPriceFromSource(parseFloat(sourcePrice)) : { price: 0, oldPrice: 0 };
-          const skuPrice = savedSku.price || autoCalc.price || '';
-          const skuOldPrice = savedSku.oldPrice || autoCalc.oldPrice || '';
-          const skuStock = savedSku.stock || '';
+          const skuPrice = savedSku.price ?? autoCalc.price ?? '';
+          const skuOldPrice = savedSku.oldPrice ?? savedSku.old_price ?? autoCalc.oldPrice ?? '';
+          const skuStock = savedSku.stock ?? '';
           const weight = savedSku.weight || window._editingProduct?.weight || '';
           const length = savedSku.length || window._editingProduct?.length || '';
           const width = savedSku.width || window._editingProduct?.width || '';
           const height = savedSku.height || window._editingProduct?.height || '';
-          const skuCode = savedSku.skuCode || '';
+          const skuCode = savedSku.skuCode || savedSku.offerId || savedSku.offer_id || '';
           // 动态生成SKU属性列：销售属性=显示单元格，SKU信息属性=输入框
           const skuAttrCells = tableAttrs.map(attr => {
             if (attr.attrCategory === 'info') {
@@ -3456,7 +3470,7 @@ function addManualSkuRow() {
   // 动态生成SKU属性列（与 generateSkuTable 的 tableAttrs 逻辑一致）
   // 销售属性=显示单元格（手动添加时为空），SKU信息属性=输入框
   const allSkuAttrs = (Array.isArray(window._skuAttrs) ? window._skuAttrs : []).filter(a => a && a.name);
-  const INFO_ATTR_SKIP_KEYWORDS_ROW = ['一个商品中的件数', '颜色名称', 'название цвета', 'color name'];
+  const INFO_ATTR_SKIP_KEYWORDS_ROW = ['一个商品中的件数'];
   const tableAttrsForRow = allSkuAttrs.filter(a => {
     if (a.attrCategory === 'sales' || !a.attrCategory) {
       return Array.isArray(a.values) && a.values.filter(v => v !== '').length > 0;
@@ -4357,7 +4371,7 @@ function collectSkuTableData() {
   // - infoAttrs（SKU信息属性，排除 件数/颜色名称）：输入框，从 input.value 读取
   const allSkuAttrs = (Array.isArray(window._skuAttrs) ? window._skuAttrs : [])
     .filter(a => a && a.name);
-  const INFO_ATTR_SKIP_KEYWORDS = ['一个商品中的件数', '颜色名称', 'название цвета', 'color name'];
+  const INFO_ATTR_SKIP_KEYWORDS = ['一个商品中的件数'];
   const tableAttrs = allSkuAttrs.filter(a => {
     if (a.attrCategory === 'sales' || !a.attrCategory) {
       // 销售属性 / 兼容旧数据：必须有值才在表格中
@@ -5326,6 +5340,26 @@ async function openCategorySelector() {
 
     // 构建扁平列表供搜索
     buildFlatList(tree);
+
+    // 反向编辑/重新打开编辑器时，按现有 descriptionCategoryId + typeId
+    // 自动反选一级、二级和三级类型，避免选择器看起来像未回填。
+    const selectedDescId = Number(window._selectedCategory?.description_category_id || 0);
+    const selectedTypeId = Number(window._selectedCategory?.type_id || 0);
+    if (selectedDescId && selectedTypeId) {
+      const selectedL1 = tree.find(l1 => (l1.children || []).some(l2 =>
+        Number(l2.description_category_id) === selectedDescId &&
+        (l2.children || []).some(l3 => Number(l3.type_id) === selectedTypeId)
+      ));
+      if (selectedL1) {
+        l1Select.value = String(selectedL1.description_category_id);
+        onCatL1Change();
+        const l2Select = document.getElementById('catL2');
+        l2Select.value = String(selectedDescId);
+        onCatL2Change();
+        const l3Select = document.getElementById('catL3');
+        l3Select.value = String(selectedTypeId);
+      }
+    }
   } catch (e) {
     console.error('拉取类目树失败:', e);
     document.getElementById('catL1').innerHTML = '<option value="">加载失败</option>';
@@ -5460,6 +5494,12 @@ function confirmCategorySelection() {
   const hiddenInput = document.getElementById('editCategoryValue');
   if (breadcrumb) breadcrumb.textContent = breadcrumbText;
   if (hiddenInput) hiddenInput.value = breadcrumbText;
+  const typeDisplay = document.getElementById('editProductType');
+  if (typeDisplay) typeDisplay.textContent = `商品类型：${l3Name}`;
+  if (window._editingProduct) {
+    window._editingProduct.typeId = typeId;
+    window._editingProduct.typeName = l3Name;
+  }
 
   // 保存选中的 Ozon ID 供后续拉取特征使用
   window._selectedCategory = {
@@ -7333,6 +7373,7 @@ async function batchPreloadAttrOptions() {
           sel.dataset.loaded = '1';
           // 写入内存缓存
           _attrValuesCache[`${descCatId}_${typeId}_${attrId}`] = values;
+          _applySavedValueId(sel);
         } else if (res.syncing) {
           // 该属性正在同步，保持"加载中..."状态，稍后单独重试
           pendingSelects.push(sel);
@@ -7418,12 +7459,31 @@ async function loadAttrOptions(selectEl, maxRetries = 15) {
  */
 function _applySavedValueId(selectEl) {
   const savedId = selectEl.dataset.savedValueId;
-  if (!savedId) return;
-  // 检查 option 中是否存在该 value
-  const exists = Array.from(selectEl.options).some(opt => opt.value === savedId);
-  if (exists) {
-    selectEl.value = savedId;
+  const savedText = String(selectEl.dataset.savedValueText || '').trim().toLowerCase();
+  if (!savedId && !savedText) return;
+  const options = Array.from(selectEl.options);
+  const matchedById = savedId
+    ? options.find(opt => String(opt.value) === String(savedId)) : null;
+  const matchedByText = !matchedById && savedText
+    ? options.find(opt => {
+        const text = String(opt.textContent || '').trim().toLowerCase();
+        return text && (text === savedText || text.includes(savedText) || savedText.includes(text));
+      })
+    : null;
+  const matched = matchedById || matchedByText;
+  if (matched) {
+    selectEl.value = matched.value;
     delete selectEl.dataset.savedValueId;
+    delete selectEl.dataset.savedValueText;
+  } else if (savedId && savedText) {
+    // Ozon 当前值可能尚未同步到本地字典或已经下架。它仍是该商品的真实值，
+    // 插入保留选项并选中，避免 UI 错误显示“请选择”。
+    const preserved = document.createElement('option');
+    preserved.value = savedId;
+    preserved.textContent = selectEl.dataset.savedValueText + '（Ozon当前值）';
+    preserved.dataset.preserved = '1';
+    selectEl.appendChild(preserved);
+    selectEl.value = savedId;
   }
   // 若 option 中不存在（如字典值已下架），保留 savedValueId 供 collect 兜底
 }
@@ -8300,9 +8360,10 @@ function fillAttributeValues(savedAttrs) {
         // 即使选项加载失败，保存时 collectCategoryAttributes 也会用 savedValueId 兜底
         if (sa.dictionary_value_id) {
           targetEl.dataset.savedValueId = String(sa.dictionary_value_id);
+          targetEl.dataset.savedValueText = String(sa.value || '');
           // 若选项已加载，立即设置；否则交给 loadAttrOptions 完成时设置
           if (targetEl.dataset.loaded === '1') {
-            targetEl.value = String(sa.dictionary_value_id);
+            _applySavedValueId(targetEl);
           } else {
             // 主动触发加载（如果用户尚未点击 select）
             if (typeof loadAttrOptions === 'function') {
@@ -8315,8 +8376,9 @@ function fillAttributeValues(savedAttrs) {
           autoMatchAttrValue(targetEl, sa.value).then(matched => {
             if (matched && matched.value_id) {
               targetEl.dataset.savedValueId = String(matched.value_id);
+              targetEl.dataset.savedValueText = String(sa.value || '');
               if (targetEl.dataset.loaded === '1') {
-                targetEl.value = String(matched.value_id);
+                _applySavedValueId(targetEl);
               }
               console.log('[fillAttributeValues] 自动匹配属性值:', sa.value, '→', matched.text, '(id:', matched.value_id + ')');
             } else {

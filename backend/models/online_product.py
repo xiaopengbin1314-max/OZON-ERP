@@ -26,6 +26,7 @@ _DB_TO_FRONTEND = {
     'ozon_offer_id': 'ozonOfferId',
     'ozon_status': 'ozonStatus',
     'last_synced_at': 'lastSyncedAt',
+    'content_score': 'contentScore',
     'created_at': 'createdAt',
     'updated_at': 'updatedAt',
 }
@@ -35,7 +36,7 @@ _FRONTEND_TO_DB = {v: k for k, v in _DB_TO_FRONTEND.items()}
 
 # 前端展示字段白名单
 DISPLAY_FIELDS = [
-    'id', 'sku', 'title', 'image', 'group', 'rating', 'status',
+    'id', 'sku', 'title', 'image', 'group', 'rating', 'contentScore', 'status',
     'price', 'originalPrice', 'sales', 'stock',
     'category', 'store', 'publisher', 'time', 'note',
     'sourceId', 'productId', 'mergeNo', 'skuId', 'platformSku',
@@ -124,7 +125,18 @@ def from_ozon_info(ozon_info, store_name='', store_id=None, publisher=''):
     sales = sum(int(s.get('count', 0) or 0) for s in sources if isinstance(s, dict))
 
     # 状态：v3 无 status 字段，用 is_archived 推断
-    ozon_status = ozon_info.get('status', '') or ''
+    if ozon_info.get('is_archived') or ozon_info.get('archived'):
+        raw_status = 'archived'
+    elif ozon_info.get('errors'):
+        raw_status = 'failed'
+    elif ozon_info.get('is_fbo_visible') or ozon_info.get('is_fbs_visible'):
+        raw_status = 'visible'
+    else:
+        raw_status = ozon_info.get('status', '') or ozon_info.get('visibility', '') or ''
+    if isinstance(raw_status, dict):
+        raw_status = (raw_status.get('state') or raw_status.get('status') or
+                      raw_status.get('name') or '')
+    ozon_status = raw_status
     if not ozon_status:
         if ozon_info.get('is_archived'):
             ozon_status = 'archived'
@@ -167,8 +179,22 @@ def from_ozon_info(ozon_info, store_name='', store_id=None, publisher=''):
         'ozon_offer_id': offer_id,
         'store_id': store_id,
         'ozon_status': ozon_status,
+        'content_score': _extract_content_score(ozon_info),
         'last_synced_at': _now(),
     }
+
+
+def _extract_content_score(data):
+    """提取 Ozon 内容评分，避免误用买家评价星级。"""
+    for key in ('content_score', 'content_rating_score', 'content_rating'):
+        value = data.get(key)
+        if isinstance(value, dict):
+            value = value.get('value') or value.get('score') or value.get('rating')
+        try:
+            return float(value) if value not in (None, '') else None
+        except (TypeError, ValueError):
+            continue
+    return None
 
 
 def _parse_price(value):

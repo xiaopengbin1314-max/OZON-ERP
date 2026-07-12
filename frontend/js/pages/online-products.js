@@ -19,9 +19,6 @@ function renderOnlineProductsPage(route) {
         <div class="batch-action-left">
 
           <button class="btn btn-xs btn-ghost" onclick="batchEditProducts()">批量编辑</button>
-          <button class="btn btn-xs btn-ghost" onclick="batchAddMonitor()">添加监控</button>
-          <button class="btn btn-xs btn-ghost" onclick="batchCopyProducts()">复制产品</button>
-          <button class="btn btn-xs btn-ghost" onclick="batchArchive()">归档</button>
           <button class="btn btn-xs btn-ghost" onclick="batchSetGroup()">分组</button>
           <div class="batch-more-dropdown">
             <button class="btn btn-xs btn-ghost" onclick="toggleBatchMore(this)">更多 <i data-lucide="chevron-down" style="width:12px;height:12px;"></i></button>
@@ -32,8 +29,6 @@ function renderOnlineProductsPage(route) {
         </div>
         <div class="batch-action-right">
           <button class="btn btn-xs btn-ghost" onclick="syncContentRating()">同步内容评级</button>
-          <button class="btn btn-xs btn-primary" onclick="createProduct()">创建产品</button>
-          <button class="btn btn-xs btn-ghost" onclick="generateWarehouseProducts()">生成仓库商品</button>
           <div class="batch-more-dropdown">
             <button class="btn btn-xs btn-ghost" onclick="toggleImportExport(this)">导入导出 <i data-lucide="chevron-down" style="width:12px;height:12px;"></i></button>
             <div class="batch-more-menu" style="display:none;">
@@ -64,7 +59,7 @@ function renderOnlineProductsPage(route) {
               <th><input type="checkbox" class="table-check-all" onclick="toggleSelectAllOnline(this)"></th>
               <th>产品信息</th>
               <th>分组</th>
-              <th>内容评级</th>
+              <th>内容评分</th>
               <th>产品状态</th>
               <th>售价(₽)</th>
               <th>原价(₽)</th>
@@ -123,6 +118,8 @@ async function reloadOnlineProducts() {
     if (res && res.code === 200 && res.data && Array.isArray(res.data.list)) {
       allOnlineProducts = res.data.list;
       isBackendUnavailable = false;
+      const statsRes = await Api.getOnlineProductStats();
+      if (statsRes && statsRes.code === 200) renderOnlineTabCounts(statsRes.data);
     } else {
       allOnlineProducts = [];
       isBackendUnavailable = true;
@@ -178,7 +175,7 @@ function renderOnlineTable() {
         </div>
       </td>
       <td><span class="group-badge">${p.group || '-'}</span></td>
-      <td><span class="rating-badge ${getRatingClass(p.rating)}">${p.rating}</span></td>
+      <td>${renderContentScore(p.contentScore)}</td>
       <td>${getOnlineStatusBadge(p.status)}</td>
       <td class="price-cell">${p.price ? '₽' + p.price.toLocaleString() : '-'}</td>
       <td class="original-price-cell">${p.originalPrice ? '₽' + p.originalPrice.toLocaleString() : '-'}</td>
@@ -191,18 +188,13 @@ function renderOnlineTable() {
       <td class="note-cell"><span class="note-text" title="${p.note || ''}">${p.note || '-'}</span></td>
       <td>
         <div class="action-btns">
-          <button class="action-link" onclick="editOnlineProduct('${p.id}')">编辑</button>
-          <button class="action-link" onclick="archiveProduct('${p.id}')">归档</button>
+          <button class="action-link" onclick="editOnlineProductCard('${p.id}')">编辑商品</button>
+          <button class="action-link" onclick="editOnlineProduct('${p.id}')">价格库存</button>
           <button class="action-link" onclick="syncProduct('${p.id}')">同步</button>
-          <button class="action-link" onclick="copyProduct('${p.id}')">复制</button>
-          <button class="action-link" onclick="addMonitor('${p.id}')">监控</button>
           <button class="action-link more-action" onclick="toggleOnlineMore(this)">更多 &#9662;</button>
         </div>
         <div class="more-actions-menu" style="display:none;" data-pid="${p.id}">
           <a href="#" onclick="viewProductDetail('${p.id}');return false;">查看详情</a>
-          <a href="#" onclick="createWarehouseFromProduct('${p.id}');return false;">生成仓库商品</a>
-          <a href="#" onclick="changeStatus('${p.id}','offline');return false;">手动下架</a>
-          <a href="#" onclick="openDailyLog('${p.id}');return false;">日档记录</a>
           <a href="#" class="danger" onclick="deleteOnlineProduct('${p.id}');return false;">删除商品</a>
         </div>
       </td>
@@ -255,10 +247,12 @@ function bindOnlineSourcePopover() {
   });
 }
 
-/** 内容评级样式类 */
-function getRatingClass(rating) {
-  const map = { 'A+': 'rating-aplus', 'A': 'rating-a', 'B': 'rating-b', 'C': 'rating-c', 'D': 'rating-d' };
-  return map[rating] || 'rating-b';
+/** Ozon 后端内容评分；未返回时不伪造等级。 */
+function renderContentScore(score) {
+  const value = Number(score);
+  if (!Number.isFinite(value)) return '<span style="color:var(--text-muted)">未评分</span>';
+  const color = value >= 80 ? '#16803c' : value >= 50 ? '#b36b00' : '#c73535';
+  return `<div title="Ozon 内容评分" style="min-width:76px"><strong style="color:${color}">${value.toFixed(value % 1 ? 1 : 0)}</strong><div style="height:4px;background:var(--border-color);margin-top:5px"><i style="display:block;height:100%;width:${Math.max(0, Math.min(100, value))}%;background:${color}"></i></div></div>`;
 }
 
 /** 在线商品状态徽章 */
@@ -285,8 +279,24 @@ function switchOnlineTab(btn) {
   filterOnlineProducts();
 }
 
+function renderOnlineTabCounts(data) {
+  const stats = (data && data.stats) || {};
+  document.querySelectorAll('.online-tab').forEach(tab => {
+    const value = tab.dataset.status ? (stats[tab.dataset.status] || 0) : (data.total || 0);
+    let countEl = tab.querySelector('.tab-count');
+    if (!countEl) {
+      countEl = document.createElement('span');
+      countEl.className = 'tab-count';
+      tab.appendChild(countEl);
+    }
+    countEl.textContent = `(${value})`;
+  });
+}
+
 /** 更新Tab计数 */
 function updateOnlineTabCounts() {
+  // 服务端统计代表完整数据集；表格本地过滤不能覆盖它。
+  if (!isBackendUnavailable) return;
   const counts = { '': allOnlineProducts.length };
   ['onsale','ready','reviewing','rejected','offline','archived'].forEach(s => {
     counts[s] = allOnlineProducts.filter(p => p.status === s).length;
@@ -302,7 +312,6 @@ function updateOnlineTabCounts() {
 /** 筛选 */
 function filterOnlineProducts() {
   const groupVal = document.getElementById('filterGroup')?.value || '';
-  const ratingVal = document.getElementById('filterRating')?.value || '';
   const storeVal = document.getElementById('filterStore')?.value || '';
   const keyword = (document.getElementById('onlineSearchInput')?.value || '').trim().toLowerCase();
 
@@ -311,8 +320,6 @@ function filterOnlineProducts() {
     if (currentOnlineStatus && p.status !== currentOnlineStatus) return false;
     // 分组
     if (groupVal && p.group !== groupVal) return false;
-    // 评级
-    if (ratingVal && p.rating !== ratingVal) return false;
     // 店铺
     if (storeVal && p.store !== storeVal) return false;
     // 关键词
@@ -330,7 +337,6 @@ function filterOnlineProducts() {
 function resetOnlineFilters() {
   const el = (id) => document.getElementById(id);
   if (el('filterGroup')) el('filterGroup').value = '';
-  if (el('filterRating')) el('filterRating').value = '';
   if (el('filterStore')) el('filterStore').value = '';
   if (el('onlineSearchInput')) el('onlineSearchInput').value = '';
   currentOnlineStatus = '';
@@ -609,18 +615,7 @@ function createWarehouseFromProduct(id) {
 
 /** 同步内容评级 */
 function syncContentRating() {
-  const ids = getSelectedOnlineIds();
-  const target = ids.length ? ids.length : filteredOnline.length;
-  Toast.show(`正在同步 ${target} 个商品的内容评级...`,'info');
-  setTimeout(() => {
-    (ids.length ? ids.map(i=>allOnlineProducts.find(p=>p.id===i)) : filteredOnline).forEach(p => {
-      if (!p) return;
-      const ratings = ['A+','A','B','C','D'];
-      p.rating = ratings[Math.floor(Math.random() * 2)]; // 随机 A+/A/B
-    });
-    filterOnlineProducts();
-    Toast.show('内容评级同步完成','success');
-  }, 2000);
+  syncProducts();
 }
 
 /** 切换「更多」下拉 */
@@ -698,30 +693,77 @@ function openDailyLog(id) { showDailyLog(); }
 
 // ===== 单项操作 =====
 
+/** 从 Ozon 反向读取，并使用共享商品编辑器打开。 */
+async function editOnlineProductCard(id) {
+  Toast.show('正在从 Ozon 读取完整商品信息...', 'info');
+  const response = await Api.getOnlineProductEditData(id);
+  if (!response || response.code !== 200 || !response.data) {
+    Toast.show(response?.msg || 'Ozon 商品读取失败', 'error');
+    return;
+  }
+  await editProduct(String(id), {
+    product: response.data,
+    editorMode: 'online',
+    skipFetch: true,
+  });
+}
+
+/** 在线编辑保存器：只更新 Ozon，不写入采集箱。 */
+async function saveOnlineEditorProduct(product, id) {
+  const buttons = document.querySelectorAll('.modal-footer .btn');
+  buttons.forEach(button => { button.disabled = true; });
+  try {
+    collectEditFormToProduct(product, { skipValidation: true });
+    const validation = ProductMapping.validateForPublish(product);
+    if (!validation.valid) {
+      Toast.show('更新校验失败：\n' + validation.errors.join('\n'), 'error');
+      return;
+    }
+    const response = await Api.saveOnlineProductEditData(id, product);
+    if (!response || response.code !== 200) {
+      throw new Error(response?.msg || 'Ozon 更新失败');
+    }
+    await Modal.forceClose();
+    await reloadOnlineProducts();
+    filterOnlineProducts();
+    Toast.show('已提交 Ozon 更新；Ozon 处理完成后点击“同步”回读最新状态', 'success');
+  } catch (error) {
+    Toast.show('更新失败：' + (error?.message || error), 'error');
+  } finally {
+    buttons.forEach(button => { button.disabled = false; });
+  }
+}
+
 /** 编辑商品 */
-function editOnlineProduct(id) {
-  const p = allOnlineProducts.find(x => x.id === id);
+async function editOnlineProduct(id) {
+  let p = allOnlineProducts.find(x => x.id === id);
   if (!p) return;
+  try {
+    const fresh = await Api.getOnlineProduct(id);
+    if (fresh && fresh.code === 200 && fresh.data) p = fresh.data;
+  } catch (e) {
+    Toast.show('读取在线商品最新数据失败', 'error');
+    return;
+  }
   Modal.show({
-    title: '编辑商品 - ' + p.sku,
+    title: '快速修改价格与库存 - ' + p.sku,
     size: 'xl',
     body: `
       <div class="edit-main"><div class="edit-tabs">
         <button class="edit-tab active" data-tab="basic" onclick="switchEditTab(this)">基本信息</button>
         <button class="edit-tab" data-tab="price" onclick="switchEditTab(this)">价格与库存</button>
-        <button class="edit-tab" data-tab="desc" onclick="switchEditTab(this)">描述</button>
       </div>
       <div class="edit-content scroll-tabs-mode">
         <div class="edit-panel active" data-panel="basic">
           <div class="edit-panel-box">
-            <div class="form-group"><label class="form-label">产品标题</label><textarea class="form-textarea" id="epTitle" rows="3">${p.title}</textarea></div>
+            <div class="form-group"><label class="form-label">产品标题（来自 Ozon）</label><textarea class="form-textarea" rows="3" disabled>${p.title}</textarea></div>
             <div class="form-row-2">
               <div class="form-group"><label class="form-label">SKU</label><input type="text" class="form-input" value="${p.sku}" disabled style="background:var(--bg-input)"></div>
               <div class="form-group"><label class="form-label">分组</label><select class="form-select" id="epGroup"><option${p.group==='3C数码'?' selected':''}>3C数码</option><option${p.group==='家居家纺'?' selected':''}>家居家纺</option><option${p.group==='穿戴设备'?' selected':''}>穿戴设备</option><option${p.group==='美妆工具'?' selected':''}>美妆工具</option></select></div>
             </div>
             <div class="form-row-2">
-              <div class="form-group"><label class="form-label">所属店铺</label><select class="form-select" id="epStore"><option${p.store==='Ozon v2.0'?' selected':''}>Ozon v2.0</option><option${p.store==='Ozon v3.0'?' selected':''}>Ozon v3.0</option></select></div>
-              <div class="form-group"><label class="form-label">产品状态</label><select class="form-select" id="epStatus"><option value="onsale"${p.status==='onsale'?' selected':''}>在售中</option><option value="ready"${p.status==='ready'?' selected':''}>准备销售</option><option value="offline"${p.status==='offline'?' selected':''}>已下架</option></select></div>
+              <div class="form-group"><label class="form-label">所属店铺</label><input class="form-input" value="${p.store || '-'}" disabled></div>
+              <div class="form-group"><label class="form-label">产品状态（来自 Ozon）</label><div style="padding-top:8px">${getOnlineStatusBadge(p.status)}</div></div>
             </div>
             <div class="form-group"><label class="form-label">备注</label><textarea class="form-textarea" id="epNote" rows="2">${p.note||''}</textarea></div>
           </div>
@@ -738,11 +780,6 @@ function editOnlineProduct(id) {
             </div>
           </div>
         </div>
-        <div class="edit-panel" data-panel="desc">
-          <div class="edit-panel-box">
-            <div class="form-group"><label class="form-label">商品描述</label><textarea class="form-textarea" id="epDesc" rows="6" placeholder="输入详细描述...">${p.desc||''}</textarea></div>
-          </div>
-        </div>
       </div></div>
     `,
     footer: [
@@ -752,71 +789,38 @@ function editOnlineProduct(id) {
           Toast.show('后端未连接，无法保存在线商品', 'warning');
           return;
         }
-        const newTitle = document.getElementById('epTitle').value || p.title;
         const newGroup = document.getElementById('epGroup').value;
-        const newStore = document.getElementById('epStore').value;
-        const newStatus = document.getElementById('epStatus').value;
         const newNote = document.getElementById('epNote').value || '';
-        const newPrice = parseInt(document.getElementById('epPrice').value) || p.price;
-        const newOrigPrice = parseInt(document.getElementById('epOrigPrice').value) || p.originalPrice;
-        const newStock = parseInt(document.getElementById('epStock').value) || p.stock;
-        const newDesc = document.getElementById('epDesc').value || '';
+        const newPrice = Number(document.getElementById('epPrice').value);
+        const newOrigPrice = Number(document.getElementById('epOrigPrice').value || 0);
+        const newStock = Number(document.getElementById('epStock').value);
+        if (!Number.isFinite(newPrice) || newPrice < 0 || !Number.isInteger(newStock) || newStock < 0) {
+          Toast.show('价格和库存格式不正确', 'warning'); return;
+        }
 
         // 记录旧值（用于检测价格/库存变化）
         const oldPrice = p.price;
         const oldOrigPrice = p.originalPrice;
         const oldStock = p.stock;
 
-        // 本地预览更新
-        p.title = newTitle; p.group = newGroup; p.store = newStore;
-        p.status = newStatus; p.note = newNote;
-        p.price = newPrice; p.originalPrice = newOrigPrice; p.stock = newStock;
-        p.desc = newDesc;
-
-        // 调用后端更新本地字段
-        const updates = {
-          title: newTitle, group: newGroup, store: newStore,
-          status: newStatus, note: newNote,
-          price: newPrice, originalPrice: newOrigPrice, stock: newStock,
-        };
         try {
-          const res = await Api.updateOnlineProduct(p.id, updates);
-          if (res && res.code === 200 && res.data) {
-            // 用后端返回的最新数据替换本地
-            const idx = allOnlineProducts.findIndex(x => x.id === p.id);
-            if (idx >= 0) allOnlineProducts[idx] = res.data;
+          const localRes = await Api.updateOnlineProduct(p.id, { group: newGroup, note: newNote });
+          if (!localRes || localRes.code !== 200) throw new Error(localRes?.msg || '本地信息保存失败');
+          if (newPrice !== oldPrice || newOrigPrice !== oldOrigPrice) {
+            const priceRes = await Api.updateOnlineProductPrice(p.id, { price: newPrice, oldPrice: newOrigPrice });
+            if (!priceRes || priceRes.code !== 200) throw new Error(priceRes?.msg || 'Ozon 价格更新失败');
           }
+          if (newStock !== oldStock) {
+            const stockRes = await Api.updateOnlineProductStock(p.id, { stock: newStock });
+            if (!stockRes || stockRes.code !== 200) throw new Error(stockRes?.msg || 'Ozon 库存更新失败');
+          }
+          await Api.syncOnlineProduct(p.id);
+          Modal.close();
+          await reloadOnlineProducts();
+          filterOnlineProducts();
+          Toast.show('商品已保存，并从 Ozon 回读确认', 'success');
         } catch (e) {
-          console.warn('[在线商品] 更新本地失败:', e);
-        }
-
-        // 检测价格/库存是否变化（用旧值比较）
-        const priceChanged = (newPrice !== oldPrice) || (newOrigPrice !== oldOrigPrice);
-        const stockChanged = (newStock !== oldStock);
-        Modal.close();
-        filterOnlineProducts();
-        Toast.show('商品信息已更新','success');
-
-        // 价格/库存有变化时，提示推送到 Ozon（双向同步）
-        if ((priceChanged || stockChanged) && (p.ozonOfferId || p.productId)) {
-          Modal.confirm('检测到价格/库存变更，是否同时推送到 Ozon 店铺？').then(async (ok) => {
-            if (!ok) return;
-            try {
-              if (priceChanged) {
-                const r = await Api.updateOnlineProductPrice(p.id, { price: newPrice, oldPrice: newOrigPrice });
-                if (r && r.code === 200) Toast.show('价格已推送到 Ozon', 'success');
-                else Toast.show('价格推送失败：' + (r && r.msg ? r.msg : ''), 'error');
-              }
-              if (stockChanged) {
-                const r = await Api.updateOnlineProductStock(p.id, { stock: newStock });
-                if (r && r.code === 200) Toast.show('库存已推送到 Ozon', 'success');
-                else Toast.show('库存推送失败：' + (r && r.msg ? r.msg : ''), 'error');
-              }
-              await reloadOnlineProducts();
-            } catch (e) {
-              Toast.show('推送异常：' + (e && e.message ? e.message : e), 'error');
-            }
-          });
+          Toast.show('保存失败：' + (e?.message || e), 'error');
         }
       }},
     ],
@@ -869,8 +873,8 @@ function createProduct() {
 /** 导入导出 */
 function importProducts(){Toast.show('导入功能开发中...','info');}
 function exportProducts(){
-  const csv=['ID,SKU,标题,分组,评级,状态,售价,原价,销量,库存,店铺,人员,时间'];
-  filteredOnline.forEach(p=>csv.push([p.id,p.sku,p.title.replace(/,/g,' '),p.group,p.rating,p.status,p.price,p.originalPrice,p.sales,p.stock,p.store,p.publisher,p.time].join(',')));
+  const csv=['ID,SKU,标题,分组,内容评分,状态,售价,原价,销量,库存,店铺,人员,时间'];
+  filteredOnline.forEach(p=>csv.push([p.id,p.sku,p.title.replace(/,/g,' '),p.group,p.contentScore ?? '',p.status,p.price,p.originalPrice,p.sales,p.stock,p.store,p.publisher,p.time].join(',')));
   const blob=new Blob(['\uFEFF'+csv.join('\n')],{type:'text/csv;charset=utf-8'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='在线商品_'+new Date().toISOString().slice(0,10)+'.csv';a.click();URL.revokeObjectURL(a.href);
   Toast.show('导出成功：'+filteredOnline.length+'条数据','success');
@@ -885,7 +889,7 @@ function toggleOnlineMore(btn){const row=btn.closest('tr');const menu=row.queryS
 /** 查看详情 */
 function viewProductDetail(id){
   const p=allOnlineProducts.find(x=>x.id===id);if(!p)return;
-  Modal.show({title:'商品详情 - '+p.sku,size:'lg',body:`<div class="store-detail-grid"><div class="detail-item"><span class="detail-label">ID</span><span class="detail-value mono">${p.id}</span></div><div class="detail-item"><span class="detail-label">SKU</span><span class="detail-value mono">${p.sku}</span></div><div class="detail-item"><span class="detail-label">标题</span><span class="detail-value">${p.title.substring(0,80)}...</span></div><div class="detail-item"><span class="detail-label">分组</span><span class="detail-value"><span class="group-badge">${p.group}</span></span></div><div class="detail-item"><span class="detail-label">评级</span><span class="detail-value"><span class="rating-badge ${getRatingClass(p.rating)}">${p.rating}</span></span></div><div class="detail-item"><span class="detail-label">状态</span><span class="detail-value">${getOnlineStatusBadge(p.status)}</span></div><div class="detail-item"><span class="detail-label">售价</span><span class="detail-value highlight">₽${p.price?.toLocaleString()}</span></div><div class="detail-item"><span class="detail-label">销量</span><span class="detail-value">${p.sales}</span></div><div class="detail-item"><span class="detail-label">库存</span><span class="detail-value">${p.stock}</span></div><div class="detail-item"><span class="detail-label">店铺</span><span class="detail-value">${p.store}</span></div><div class="detail-item full-width"><span class="detail-label">发布时间</span><span class="detail-value mono">${p.time}</span></div><div class="detail-item full-width"><span class="detail-label">备注</span><span class="detail-value">${p.note||'-'}</span></div></div>`,footer:[{text:'关闭',class:'btn-ghost',onClick:()=>Modal.close()}]});
+  Modal.show({title:'商品详情 - '+p.sku,size:'lg',body:`<div class="store-detail-grid"><div class="detail-item"><span class="detail-label">ID</span><span class="detail-value mono">${p.id}</span></div><div class="detail-item"><span class="detail-label">SKU</span><span class="detail-value mono">${p.sku}</span></div><div class="detail-item full-width"><span class="detail-label">标题</span><span class="detail-value">${p.title}</span></div><div class="detail-item"><span class="detail-label">内容评分</span><span class="detail-value">${renderContentScore(p.contentScore)}</span></div><div class="detail-item"><span class="detail-label">状态</span><span class="detail-value">${getOnlineStatusBadge(p.status)}</span></div><div class="detail-item"><span class="detail-label">售价</span><span class="detail-value highlight">₽${Number(p.price||0).toLocaleString()}</span></div><div class="detail-item"><span class="detail-label">库存</span><span class="detail-value">${p.stock}</span></div><div class="detail-item"><span class="detail-label">店铺</span><span class="detail-value">${p.store}</span></div><div class="detail-item full-width"><span class="detail-label">Ozon 原始状态</span><span class="detail-value mono">${p.ozonStatus||'-'}</span></div><div class="detail-item full-width"><span class="detail-label">备注</span><span class="detail-value">${p.note||'-'}</span></div></div>`,footer:[{text:'关闭',class:'btn-ghost',onClick:()=>Modal.close()}]});
 }
 
 /** 改变状态 */

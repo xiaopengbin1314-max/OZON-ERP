@@ -16,14 +16,19 @@
 - DELETE /api/online-products/<id>         删除单个
 """
 from flask import Blueprint, request
+import json
 from models.online_product import OnlineProduct, from_ozon_info
 from models.account import Store
 from services.ozon_api import (
     list_all_products, get_product_info_list, get_product_info,
-    update_prices, update_stocks, _get_store_credentials, OzonAPIError,
+    get_product_attributes, get_product_description, import_products,
+    get_category_tree_bilingual,
+    update_prices, update_stocks, get_product_content_ratings,
+    _get_store_credentials, OzonAPIError,
 )
 from utils.response import success_response, error_response, paginate_response, handle_errors
 from utils.validators import extract_pagination
+from services.publish_service import build_ozon_product_items, _get_bilingual_category_attributes
 
 online_product_bp = Blueprint('online_products', __name__)
 
@@ -34,23 +39,28 @@ def _get_store_info(store_id=None):
     Returns:
         tuple: (client_id, api_key, store_name, store_pk)
     """
-    client_id, api_key = _get_store_credentials(store_id)
-    if not client_id or not api_key:
-        return None, None, '', None
-
-    store_name = ''
-    store_pk = None
+    store = None
     if store_id:
-        store = Store.find_by_store_id(store_id)
+        try:
+            store = Store.find_by_id(int(store_id))
+        except (TypeError, ValueError):
+            store = None
+        if not store:
+            store = Store.find_by_store_id(store_id)
     else:
         stores = Store.find_all(auth_status='active')
         store = stores[0] if stores else None
-
-    if store:
-        store_name = store.get('alias') or store.get('store_id') or ''
-        store_pk = store.get('id')
-
-    return client_id, api_key, store_name, store_pk
+    if not store:
+        return None, None, '', None
+    from utils.security import decrypt_secret
+    client_id = store.get('client_id') or store.get('store_id')
+    api_key = decrypt_secret(store.get('api_key'))
+    if not client_id or not api_key:
+        return None, None, '', store.get('id')
+    return (
+        str(client_id), api_key,
+        store.get('alias') or store.get('store_id') or '', store.get('id'),
+    )
 
 
 @online_product_bp.route('/online-products', methods=['GET'])
@@ -104,6 +114,291 @@ def get_online_product(item_id):
     return success_response(data=item)
 
 
+def _reverse_ozon_product(info, attr_info, description, online_item):
+    """把 Ozon 已发布数据转换为共享编辑器使用的商品结构。"""
+    attrs = attr_info.get('attributes') or info.get('attributes') or []
+    description_category_id = attr_info.get('description_category_id') or info.get('description_category_id')
+    type_id = attr_info.get('type_id') or info.get('type_id')
+    try:
+        category_defs = _get_bilingual_category_attributes(description_category_id, type_id)
+    except Exception as e:
+        print(f'[在线商品反向读取] 双语属性名称加载失败: {e}')
+        category_defs = []
+    defs_by_id = {str(row.get('id')): row for row in category_defs if isinstance(row, dict)}
+
+    category_label = ''
+    type_name = ''
+    type_name_zh = ''
+    type_name_ru = ''
+    try:
+        for level1 in get_category_tree_bilingual(use_cache=True) or []:
+            for level2 in level1.get('children') or []:
+                if int(level2.get('description_category_id') or 0) != int(description_category_id or 0):
+                    continue
+                for level3 in level2.get('children') or []:
+                    if int(level3.get('type_id') or 0) == int(type_id or 0):
+                        type_name = str(level3.get('type_name') or '')
+                        type_name_zh = str(level3.get('type_name_zh') or '')
+                        type_name_ru = str(level3.get('type_name_ru') or '')
+                        parts = [
+                            level1.get('category_name'), level2.get('category_name'),
+                            level3.get('type_name'),
+                        ]
+                        category_label = ' / '.join(str(part) for part in parts if part)
+                        break
+                if category_label:
+                    break
+            if category_label:
+                break
+    except Exception as e:
+        print(f'[在线商品反向读取] 类目名称加载失败: {e}')
+
+    def bilingual_attr(attr_id, fallback_ru=''):
+        definition = defs_by_id.get(str(attr_id), {})
+        ru_name = str(definition.get('name') or fallback_ru or '').strip()
+        zh_name = str(definition.get('name_zh') or '').strip()
+        if zh_name and ru_name and zh_name != ru_name:
+            return f'{zh_name}（{ru_name}）', zh_name, ru_name, definition
+        return zh_name or ru_name, zh_name, ru_name, definition
+
+    normalized_attrs = []
+    rich_content = ''
+    sku_value_map = {}
+    for attr in attrs:
+        if not isinstance(attr, dict):
+            continue
+        values = attr.get('values') or []
+        attr_id = attr.get('id') or attr.get('attribute_id')
+        display_name, zh_name, ru_name, definition = bilingual_attr(attr_id)
+        if str(attr_id) == '11254' and values:
+            rich_content = str(values[0].get('value') or '')
+        if str(attr_id) in ('10096', '10097') and values:
+            sku_value_map[str(attr_id)] = values
+        normalized_attrs.append({
+            'id': attr_id,
+            'name': display_name,
+            'nameZh': zh_name,
+            'nameRu': ru_name,
+            'dictionaryId': definition.get('dictionary_id') or 0,
+            'dictionary_value_id': (
+                values[0].get('dictionary_value_id')
+                if len(values) == 1 and isinstance(values[0], dict) else None
+            ),
+            'dictionary_value_ids': [
+                value.get('dictionary_value_id') for value in values
+                if isinstance(value, dict) and value.get('dictionary_value_id')
+            ],
+            'complexId': attr.get('complex_id', 0),
+            'value': ', '.join(str(v.get('value', '')) for v in values if isinstance(v, dict)),
+            'values': values,
+        })
+    def image_urls(value):
+        if not value:
+            return []
+        values = value if isinstance(value, list) else [value]
+        return [
+            x if isinstance(x, str) else x.get('file_name', '')
+            for x in values if isinstance(x, (str, dict))
+        ]
+
+    images = []
+    for source in (
+        attr_info.get('primary_image'), info.get('primary_image'),
+        attr_info.get('images'), info.get('images'),
+        attr_info.get('color_image'), info.get('color_image'),
+    ):
+        for url in image_urls(source):
+            if url and url not in images:
+                images.append(url)
+    offer_id = info.get('offer_id') or online_item.get('ozonOfferId') or online_item.get('sku')
+    price = info.get('price')
+    if isinstance(price, dict):
+        price = price.get('price')
+    raw_stocks = info.get('stocks') or []
+    if isinstance(raw_stocks, dict):
+        raw_stocks = raw_stocks.get('stocks') or []
+    stock = sum(
+        int(row.get('present', 0) or 0)
+        for row in raw_stocks if isinstance(row, dict)
+    )
+    if not raw_stocks:
+        stock = int(online_item.get('stock') or 0)
+    color_values = sku_value_map.get('10096') or []
+    color_name_values = sku_value_map.get('10097') or []
+    color = color_values[0].get('value', '') if color_values else ''
+    color_name = color_name_values[0].get('value', '') if color_name_values else color
+    color_label, color_zh, color_ru, color_def = bilingual_attr(10096, 'Цвет товара')
+    color_name_label, color_name_zh, color_name_ru, color_name_def = bilingual_attr(10097, 'Название цвета')
+    combo = {}
+    if color:
+        combo[color_label] = color
+    if color_name:
+        combo[color_name_label] = color_name
+    sku_attrs = []
+    if color_values:
+        sku_attrs.append({
+            'name': color_label, 'nameZh': color_zh, 'nameRu': color_ru,
+            'attrId': 10096, 'dictionaryId': color_def.get('dictionary_id') or 1494,
+            'skuType': 'color', 'attrCategory': 'sales',
+            'values': [v.get('value', '') for v in color_values],
+            'valueIds': [v.get('dictionary_value_id') for v in color_values],
+        })
+    if color_name_values:
+        sku_attrs.append({
+            'name': color_name_label, 'nameZh': color_name_zh, 'nameRu': color_name_ru,
+            'attrId': 10097, 'dictionaryId': color_name_def.get('dictionary_id') or 0,
+            'skuType': 'text', 'attrCategory': 'info',
+            'values': [v.get('value', '') for v in color_name_values],
+        })
+    detail_images = []
+    if rich_content:
+        try:
+            rich_data = json.loads(rich_content)
+            def walk_rich(node):
+                if isinstance(node, dict):
+                    for key, value in node.items():
+                        if key.lower() in ('src', 'url', 'image', 'imageurl', 'image_url'):
+                            for url in image_urls(value):
+                                if url.startswith(('http://', 'https://')) and url not in detail_images:
+                                    detail_images.append(url)
+                        walk_rich(value)
+                elif isinstance(node, list):
+                    for child in node:
+                        walk_rich(child)
+            walk_rich(rich_data)
+        except (TypeError, ValueError):
+            pass
+    sku_entry = {
+        'offerId': str(offer_id or ''),
+        'offer_id': str(offer_id or ''),
+        'skuCode': str(offer_id or ''),
+        'sku': str(attr_info.get('sku') or info.get('sku') or ''),
+        'skuId': str(attr_info.get('sku') or info.get('sku') or ''),
+        'title': info.get('name') or '',
+        'price': float(price or 0),
+        'oldPrice': float(info.get('old_price') or 0),
+        'old_price': float(info.get('old_price') or 0),
+        'stock': stock,
+        'weight': attr_info.get('weight') or info.get('weight') or 0,
+        'length': attr_info.get('depth') or info.get('depth') or 0,
+        'depth': attr_info.get('depth') or info.get('depth') or 0,
+        'width': attr_info.get('width') or info.get('width') or 0,
+        'height': attr_info.get('height') or info.get('height') or 0,
+        'dimensionUnit': attr_info.get('dimension_unit') or info.get('dimension_unit') or 'mm',
+        'image': images[0] if images else '',
+        'images': [x for x in images if x],
+        'color': color,
+        'colorName': color_name,
+        'combo': combo,
+    }
+    return {
+        'id': str(online_item['id']),
+        '_editorMode': 'online',
+        'onlineProductId': str(online_item['id']),
+        'ozonProductId': str(info.get('id') or online_item.get('ozonProductId') or ''),
+        'offerId': str(offer_id or ''),
+        'productId': str(info.get('id') or ''),
+        'title': info.get('name') or online_item.get('title') or '',
+        'description': description.get('description') or info.get('description') or '',
+        'richContent': rich_content or description.get('rich_content_json') or description.get('rich_content') or '',
+        'contentType': 'rich' if rich_content or description.get('rich_content_json') or description.get('rich_content') else 'description',
+        'images': [x for x in images if x],
+        'detailImages': detail_images,
+        'attributes': normalized_attrs,
+        'descriptionCategoryId': description_category_id,
+        'typeId': type_id,
+        'typeName': type_name,
+        'typeNameZh': type_name_zh,
+        'typeNameRu': type_name_ru,
+        'category': category_label,
+        'categoryMatch': {
+            'matched': bool(category_label),
+            'confidence': 'exact',
+            'label': category_label,
+            'description_category_id': description_category_id,
+            'type_id': type_id,
+            'source': 'ozon_reverse',
+        },
+        'price': float(price or online_item.get('price') or 0),
+        'oldPrice': float(info.get('old_price') or online_item.get('originalPrice') or 0),
+        'stock': stock,
+        'weight': attr_info.get('weight') or info.get('weight') or 0,
+        'weightValue': attr_info.get('weight') or info.get('weight') or 0,
+        'weightUnit': attr_info.get('weight_unit') or info.get('weight_unit') or 'g',
+        'dimensions': {
+            'length': attr_info.get('depth') or info.get('depth') or 0,
+            'width': attr_info.get('width') or info.get('width') or 0,
+            'height': attr_info.get('height') or info.get('height') or 0,
+            'unit': attr_info.get('dimension_unit') or info.get('dimension_unit') or 'mm',
+        },
+        'length': attr_info.get('depth') or info.get('depth') or 0,
+        'width': attr_info.get('width') or info.get('width') or 0,
+        'height': attr_info.get('height') or info.get('height') or 0,
+        'skuList': [dict(sku_entry)],
+        'skuAttrs': sku_attrs,
+        'skus': [sku_entry],
+        'store': online_item.get('store') or '',
+        'storeId': online_item.get('storeId'),
+        'group': online_item.get('group') or '未分组',
+        'note': online_item.get('note') or '',
+        'platform': 'ozon',
+        'status': 'published',
+    }
+
+
+@online_product_bp.route('/online-products/<int:item_id>/edit-data', methods=['GET'])
+@handle_errors
+def get_online_product_edit_data(item_id):
+    item = OnlineProduct.find_by_id(item_id)
+    if not item:
+        return error_response('在线商品不存在', 404)
+    client_id, api_key, _, _ = _get_store_info(item.get('storeId'))
+    if not client_id:
+        return error_response('未配置 Ozon API 凭证', 401)
+    product_id = item.get('ozonProductId') or item.get('productId')
+    try:
+        info = get_product_info(product_id=product_id, client_id=client_id, api_key=api_key)
+        rows = get_product_attributes(product_id, client_id=client_id, api_key=api_key)
+        attr_info = rows[0] if rows else {}
+        try:
+            description = get_product_description(product_id, client_id=client_id, api_key=api_key)
+        except OzonAPIError:
+            description = {}
+    except OzonAPIError as e:
+        return error_response(f'Ozon 商品反向读取失败: {e.message}', e.status_code or 502)
+    return success_response(data=_reverse_ozon_product(info, attr_info, description, item))
+
+
+@online_product_bp.route('/online-products/<int:item_id>/edit-data', methods=['PUT'])
+@handle_errors
+def save_online_product_edit_data(item_id):
+    online_item = OnlineProduct.find_by_id(item_id)
+    if not online_item:
+        return error_response('在线商品不存在', 404)
+    product = request.get_json(silent=True) or {}
+    expected_offer = str(online_item.get('ozonOfferId') or online_item.get('sku') or '')
+    submitted = product.get('skus') or []
+    offers = {str(s.get('offerId') or s.get('skuCode') or '') for s in submitted if isinstance(s, dict)}
+    offers.discard('')
+    if offers and offers != {expected_offer}:
+        return error_response('在线编辑只能更新原 offer_id，不能新增或替换 SKU', 400)
+    product['offerId'] = expected_offer
+    product['storeId'] = online_item.get('storeId')
+    product['ozonProductId'] = online_item.get('ozonProductId')
+    client_id, api_key, _, _ = _get_store_info(online_item.get('storeId'))
+    if not client_id:
+        return error_response('未配置 Ozon API 凭证', 401)
+    try:
+        items = build_ozon_product_items(product, store_id=online_item.get('storeId'), publish_mode='merge')
+        if len(items) != 1:
+            return error_response('在线商品编辑当前仅允许更新当前 SKU', 400)
+        result = import_products(items, client_id=client_id, api_key=api_key)
+    except (OzonAPIError, ValueError) as e:
+        message = e.message if isinstance(e, OzonAPIError) else str(e)
+        return error_response(f'Ozon 更新失败: {message}', getattr(e, 'status_code', None) or 502)
+    return success_response(data={'taskId': (result.get('result') or {}).get('task_id'), 'ozon': result}, msg='已提交 Ozon 更新')
+
+
 @online_product_bp.route('/online-products/sync', methods=['POST'])
 @handle_errors
 def sync_online_products():
@@ -146,8 +441,10 @@ def sync_online_products():
 
     total = len(all_items)
     if total == 0:
-        # 店铺无商品 → 清空该店铺的所有本地残留
-        orphan_deleted = OnlineProduct.cleanup_orphans([], store_id=store_pk)
+        # 只有全量同步才能据此判断店铺为空；筛选结果为空不能删除其他状态商品。
+        orphan_deleted = 0
+        if not status_filter:
+            orphan_deleted = OnlineProduct.cleanup_orphans([], store_id=store_pk)
         return success_response(data={
             'total': 0, 'synced': 0, 'inserted': 0, 'updated': 0, 'failed': 0,
             'orphanDeleted': orphan_deleted,
@@ -155,6 +452,9 @@ def sync_online_products():
 
     # 2. 分批获取详情并 upsert
     product_ids = [item.get('product_id') for item in all_items if item.get('product_id')]
+    list_items_by_id = {
+        str(item.get('product_id')): item for item in all_items if item.get('product_id')
+    }
     synced = 0
     inserted = 0
     updated = 0
@@ -170,8 +470,27 @@ def sync_online_products():
             failed += len(batch)
             continue
 
+        rating_by_sku = {}
+        try:
+            rating_rows = get_product_content_ratings(
+                [info.get('sku') for info in info_list if info.get('sku')],
+                client_id=client_id, api_key=api_key,
+            )
+            for row in rating_rows:
+                rating_by_sku[str(row.get('sku', ''))] = row
+        except OzonAPIError as e:
+            print(f'[在线商品同步] 内容评分拉取失败（不影响商品同步）: {e.message}')
+
         for ozon_info in info_list:
             try:
+                ozon_info = dict(ozon_info)
+                ozon_info.update({
+                    k: v for k, v in list_items_by_id.get(str(ozon_info.get('id')), {}).items()
+                    if k not in ('product_id', 'offer_id') and v not in (None, '')
+                })
+                score_row = rating_by_sku.get(str(ozon_info.get('sku', '')))
+                if score_row:
+                    ozon_info['content_rating'] = score_row.get('rating', score_row.get('score'))
                 local_data = from_ozon_info(
                     ozon_info,
                     store_name=store_name,
@@ -193,7 +512,8 @@ def sync_online_products():
     valid_ozon_ids = [str(pid) for pid in product_ids if pid]
     orphan_deleted = 0
     try:
-        orphan_deleted = OnlineProduct.cleanup_orphans(valid_ozon_ids, store_id=store_pk)
+        if not status_filter:
+            orphan_deleted = OnlineProduct.cleanup_orphans(valid_ozon_ids, store_id=store_pk)
         if orphan_deleted > 0:
             print(f'[在线商品同步] 清理 {orphan_deleted} 个已下架/删除的残留商品')
     except Exception as e:
@@ -238,6 +558,16 @@ def sync_single_online_product(item_id):
 
     if not ozon_info:
         return error_response("Ozon 未返回商品信息", 404)
+
+    try:
+        sku = ozon_info.get('sku')
+        rows = get_product_content_ratings(
+            [sku] if sku else [], client_id=client_id, api_key=api_key,
+        )
+        if rows:
+            ozon_info['content_rating'] = rows[0].get('rating', rows[0].get('score'))
+    except OzonAPIError as e:
+        print(f'[在线商品同步] 单品内容评分拉取失败（不影响同步）: {e.message}')
 
     # 保留本地的 publisher/note/group/rating 等字段（不覆盖）
     local_data = from_ozon_info(

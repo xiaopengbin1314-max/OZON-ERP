@@ -628,8 +628,29 @@
       const out = [];
       const seenNames = Object.create(null);
 
+      // Ozon renders some important parameters outside webCharacteristics as
+      // standalone information blocks: <div class="RA-a1"><h3>...</h3><p>...</p></div>.
+      // Collect only known parameter headings to avoid treating Rich Content
+      // text blocks as product attributes.
+      const standaloneHeading = /^(комплектация|комплект поставки|состав комплекта|package contents|included in the package|包装内容|套装内容)$/i;
+      try {
+        const standaloneBlocks = document.querySelectorAll('.RA-a1');
+        for (let i = 0; i < standaloneBlocks.length; i++) {
+          const block = standaloneBlocks[i];
+          const heading = block.querySelector(':scope > h3') || block.querySelector('h3');
+          const body = block.querySelector(':scope > p') || block.querySelector('p');
+          const name = (heading && (heading.innerText || heading.textContent) || '').replace(/\s+/g, ' ').trim();
+          const value = (body && (body.innerText || body.textContent) || '').replace(/\s+/g, ' ').trim();
+          if (standaloneHeading.test(name) && value && value !== '—' && !seenNames[name]) {
+            out.push({ name: name, value: value, _source: 'standalone-info-block' });
+            seenNames[name] = 1;
+          }
+        }
+      } catch (_) {}
+
       if (wrap) {
       // 策略1: dl/dt/dd 结构（最常见）
+      const beforeDl = out.length;
       const dlItems = wrap.querySelectorAll('dl');
       for (let i = 0; i < dlItems.length; i++) {
         const dt = dlItems[i].querySelector('dt');
@@ -642,7 +663,7 @@
           seenNames[name] = 1;
         }
       }
-      if (out.length > 0) return out;
+      if (out.length > beforeDl) return out;
 
       // 策略2: 通用 div/span 结构（class 含 attribute/characteristic/item）
       const itemSelectors = [
@@ -653,6 +674,7 @@
         '[class*="param"]',
       ];
       for (let s = 0; s < itemSelectors.length; s++) {
+        const beforeItems = out.length;
         const items = wrap.querySelectorAll(itemSelectors[s]);
         if (items.length === 0) continue;
         for (let i = 0; i < items.length; i++) {
@@ -668,10 +690,11 @@
             }
           }
         }
-        if (out.length > 0) return out;
+        if (out.length > beforeItems) return out;
       }
 
       // 策略3: 文本拆分兜底（"属性名: 值" 每行一个）
+      const beforeText = out.length;
       const text = (wrap.innerText || wrap.textContent || '').trim();
       const lines = text.split('\n');
       for (let i = 0; i < lines.length; i++) {
@@ -682,7 +705,7 @@
           seenNames[m[1]] = 1;
         }
       }
-      if (out.length > 0) return out;
+      if (out.length > beforeText) return out;
       } // end if (wrap)
 
       // 策略4: 全局兜底——搜索页面中所有 dl[dt+dd] 对（不依赖容器选择器）

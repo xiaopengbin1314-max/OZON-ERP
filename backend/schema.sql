@@ -333,7 +333,8 @@ CREATE TABLE IF NOT EXISTS online_products (
     title               TEXT NOT NULL DEFAULT '',        -- 商品标题（俄文）
     image               TEXT NOT NULL DEFAULT '',        -- 主图 URL
     grp                 TEXT NOT NULL DEFAULT '未分组',   -- 分组（避开 SQL 保留字 group）
-    rating              TEXT NOT NULL DEFAULT 'B',       -- 内容评级 A+/A/B/C/D
+    rating              TEXT NOT NULL DEFAULT '',        -- 历史兼容字段，不再用于展示
+    content_score       REAL,                            -- Ozon 内容评分（原始数值）
     status              TEXT NOT NULL DEFAULT 'reviewing',-- onsale/ready/reviewing/rejected/offline/archived
     price               REAL NOT NULL DEFAULT 0,         -- 售价（₽）
     original_price      REAL NOT NULL DEFAULT 0,         -- 原价/划线价（₽）

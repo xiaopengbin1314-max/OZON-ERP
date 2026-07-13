@@ -213,7 +213,7 @@
   function parseDimensionValue(text, fieldName) {
     if (text == null) return 0;
     const s = String(text).toLowerCase().replace(',', '.').trim();
-    let m = s.match(/(\d+(?:\.\d+)?)\s*(см|cm|мм|mm|м(?![а-я]))/);
+    let m = s.match(/(\d+(?:\.\d+)?)\s*(厘米|公分|cm|см|毫米|mm|мм|米|m(?![a-z])|м(?![а-я]))/);
     let num = 0;
     let unit = '';
     if (m) {
@@ -222,14 +222,14 @@
     } else {
       // 值中无单位，尝试从字段名提取
       const fn = String(fieldName || '').toLowerCase();
-      const m2 = fn.match(/(см|cm|мм|mm|м(?![а-я]))/);
+      const m2 = fn.match(/(厘米|公分|cm|см|毫米|mm|мм|米|m(?![a-z])|м(?![а-я]))/);
       const m3 = s.match(/(\d+(?:\.\d+)?)/);
       if (!m2 || !m3) return 0;
       num = parseFloat(m3[1]);
       unit = m2[1];
     }
-    if (unit === 'м' || unit === 'm') return Math.round(num * 1000);
-    if (unit === 'мм' || unit === 'mm') return Math.round(num);
+    if (unit === 'м' || unit === 'm' || unit === '米') return Math.round(num * 1000);
+    if (unit === 'мм' || unit === 'mm' || unit === '毫米') return Math.round(num);
     return Math.round(num * 10);  // см → mm
   }
 
@@ -245,10 +245,10 @@
     if (!m) return null;
     // 从字段名提取单位（如 "Размер (ДхШхВ), см" → см）
     const fn = String(fieldName || '').toLowerCase();
-    const unitMatch = fn.match(/(см|cm|мм|mm|м(?![а-я]))/);
+    const unitMatch = fn.match(/(厘米|公分|cm|см|毫米|mm|мм|米|m(?![a-z])|м(?![а-я]))/);
     const unit = unitMatch ? unitMatch[1] : 'см';
-    const factor = (unit === 'м' || unit === 'm') ? 1000
-      : (unit === 'мм' || unit === 'mm') ? 1
+    const factor = (unit === 'м' || unit === 'm' || unit === '米') ? 1000
+      : (unit === 'мм' || unit === 'mm' || unit === '毫米') ? 1
       : 10; // см → mm
     return {
       length: Math.round(parseFloat(m[1]) * factor),
@@ -745,10 +745,10 @@
 
       // 关键词定义（中俄英）
       const WEIGHT_KEYS = ['вес', 'масса', 'weight', '净重'];
-      const LENGTH_KEYS = ['длина', 'length', 'длин'];
-      const WIDTH_KEYS = ['ширина', 'width', 'шир'];
-      const HEIGHT_KEYS = ['высота', 'height', 'выс'];
-      const SIZE_TRIPLE_KEYS = ['размер', 'size', 'габариты', 'dimensions', 'дхшхв'];
+      const LENGTH_KEYS = ['длина', 'length', 'длин', '长度', '长'];
+      const WIDTH_KEYS = ['ширина', 'width', 'шир', '宽度', '宽'];
+      const HEIGHT_KEYS = ['высота', 'height', 'выс', '高度', '高'];
+      const SIZE_TRIPLE_KEYS = ['размер', 'size', 'габариты', 'dimensions', 'дхшхв', '尺寸', '长宽高'];
       const BRAND_KEYS = ['бренд', 'brand', 'торговая марка'];
       const MANUFACTURER_KEYS = ['изготовитель', 'manufacturer', 'made by', 'страна-изготовитель', 'страна производства'];
       const PART_NUMBER_KEYS = ['артикул', 'part number', 'part_number', 'sku производителя', 'model number'];

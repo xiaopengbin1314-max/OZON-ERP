@@ -346,14 +346,16 @@ def sync_single_category_attributes(description_category_id, type_id, force=Fals
     """
     from models.category import CategoryAttribute
 
-    # 检查是否已同步
-    if not force and CategoryAttribute.has_attributes(type_id):
-        return {
-            'success': True,
-            'message': '属性已存在（从数据库读取）',
-            'attr_count': len(CategoryAttribute.find_by_type_id(type_id)),
-            'from_cache': True,
-        }
+    # 一次读取同时完成存在性检查，避免 COUNT + SELECT 两次查询。
+    if not force:
+        cached_attrs = CategoryAttribute.find_by_category(description_category_id, type_id)
+        if cached_attrs:
+            return {
+                'success': True,
+                'message': '属性已存在（从数据库读取）',
+                'attr_count': len(cached_attrs),
+                'from_cache': True,
+            }
 
     try:
         from services.ozon_api import get_category_attributes as ozon_get_attrs
@@ -363,46 +365,62 @@ def sync_single_category_attributes(description_category_id, type_id, force=Fals
             description_category_id=description_category_id,
             type_id=type_id,
             language='ZH_HANS',
+            refresh=force,
         )
         result_ru = ozon_get_attrs(
             description_category_id=description_category_id,
             type_id=type_id,
             language='DEFAULT',
+            refresh=force,
         )
 
         raw_attrs_zh = result_zh.get('result', []) if result_zh else []
         raw_attrs_ru = result_ru.get('result', []) if result_ru else []
 
-        # 构建俄语名称映射
-        ru_name_map = {}
-        for a in raw_attrs_ru:
-            ru_name_map[a.get('id')] = a.get('name', '')
+        if not raw_attrs_zh and not raw_attrs_ru:
+            return {
+                'success': False,
+                'message': 'Ozon 未返回任何类目属性，已保留本地属性库',
+                'attr_count': 0,
+                'from_cache': False,
+            }
 
-        # 合并属性
+        zh_by_id = {a.get('id'): a for a in raw_attrs_zh if a.get('id') is not None}
+        ru_by_id = {a.get('id'): a for a in raw_attrs_ru if a.get('id') is not None}
+        attribute_ids = list(zh_by_id)
+        attribute_ids.extend(attr_id for attr_id in ru_by_id if attr_id not in zh_by_id)
+
+        # 按属性 ID 合并两种语言，避免某个语言端点暂时缺项造成特征丢失。
         attrs = []
-        for a in raw_attrs_zh:
-            zh_name = a.get('name', '')
-            ru_name = ru_name_map.get(a.get('id'), '')
-            merged_name = f'{zh_name}（{ru_name}）' if ru_name and ru_name != zh_name else zh_name
+        for attr_id in attribute_ids:
+            zh_attr = zh_by_id.get(attr_id, {})
+            ru_attr = ru_by_id.get(attr_id, {})
+            source_attr = zh_attr or ru_attr
+            zh_name = zh_attr.get('name', '')
+            ru_name = ru_attr.get('name', '')
+            if zh_name and ru_name and ru_name != zh_name:
+                merged_name = f'{zh_name}（{ru_name}）'
+            else:
+                merged_name = zh_name or ru_name
 
             attrs.append({
-                'attribute_id': a.get('id'),
+                'attribute_id': attr_id,
                 'name': merged_name,
                 'name_zh': zh_name,
                 'name_ru': ru_name,
-                'description': a.get('description', '') or '',
-                'attr_type': a.get('type', 'String'),
-                'is_required': a.get('is_required', False),
-                'is_collection': a.get('is_collection', False),
-                'is_aspect': a.get('is_aspect', False),
-                'group_name': a.get('group_name', '') or '基本信息',
-                'group_id': a.get('group_id', 0),
-                'dictionary_id': a.get('dictionary_id', 0),
-                'max_value_count': a.get('max_value_count', 0),
+                'description': zh_attr.get('description') or ru_attr.get('description') or '',
+                'attr_type': source_attr.get('type', 'String'),
+                'is_required': source_attr.get('is_required', False),
+                'is_collection': source_attr.get('is_collection', False),
+                'is_aspect': source_attr.get('is_aspect', False),
+                'group_name': source_attr.get('group_name', '') or '基本信息',
+                'group_id': source_attr.get('group_id', 0),
+                'dictionary_id': source_attr.get('dictionary_id', 0),
+                'max_value_count': source_attr.get('max_value_count', 0),
             })
 
         # 写入数据库
-        CategoryAttribute.replace_for_type_id(type_id, description_category_id, attrs)
+        CategoryAttribute.replace_for_category(description_category_id, type_id, attrs)
 
         return {
             'success': True,
@@ -432,13 +450,17 @@ def sync_single_attribute_values(description_category_id, type_id, attribute_id,
         return {'success': False, 'message': '无 dictionary_id', 'value_count': 0, 'from_cache': False}
 
     # 检查是否已同步（按类目上下文检查，避免共享字典污染）
-    if not force and AttributeDictionaryValue.has_values(dictionary_id, type_id, description_category_id):
-        return {
-            'success': True,
-            'message': '字典值已存在（从数据库读取）',
-            'value_count': len(AttributeDictionaryValue.find_by_dictionary_id(dictionary_id, type_id, description_category_id)),
-            'from_cache': True,
-        }
+    if not force:
+        cached_values = AttributeDictionaryValue.find_by_dictionary_id(
+            dictionary_id, type_id, description_category_id
+        )
+        if cached_values:
+            return {
+                'success': True,
+                'message': '字典值已存在（从数据库读取）',
+                'value_count': len(cached_values),
+                'from_cache': True,
+            }
 
     try:
         from services.ozon_api import get_attribute_values_full

@@ -467,7 +467,7 @@ def match_category(source_category, source_platform='ozon', title='', descriptio
 
 
 def get_category_attributes(description_category_id, type_id, language='ZH_HANS',
-                            client_id=None, api_key=None):
+                            client_id=None, api_key=None, refresh=False):
     """获取类目下的特征（属性）列表（带缓存，TTL 6小时）
 
     Args:
@@ -477,9 +477,10 @@ def get_category_attributes(description_category_id, type_id, language='ZH_HANS'
     """
     cache_key = f'attrs_{description_category_id}_{type_id}_{language}'
     ttl = CACHE_TTL['attributes']
-    cached = _cache_get_with_language_alias(cache_key, language, ttl=ttl)
-    if cached:
-        return cached
+    if not refresh:
+        cached = _cache_get_with_language_alias(cache_key, language, ttl=ttl)
+        if cached:
+            return cached
 
     result = _call_ozon_api('/v1/description-category/attribute', {
         'description_category_id': description_category_id,

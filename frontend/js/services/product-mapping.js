@@ -295,16 +295,23 @@ function cleanDimensions(weightStr, existLength, existWidth, existHeight, attrib
   for (const [key, val] of attrEntries) {
     const keyLower = key.toLowerCase();
     const valStr = String(val);
-    const numMatch = valStr.match(/([\d.]+)/);
+    const numMatch = valStr.replace(',', '.').match(/([\d.]+)/);
     if (!numMatch) continue;
     const numVal = parseFloat(numMatch[1]) || 0;
+    const dimensionText = `${keyLower} ${valStr.toLowerCase()}`;
+    const toMillimeters = value => {
+      if (/(毫米|mm|мм)/i.test(dimensionText)) return value;
+      if (/(厘米|公分|cm|см)/i.test(dimensionText)) return value * 10;
+      if (/(^|[^а-я])м([^а-я]|$)|米/i.test(dimensionText)) return value * 1000;
+      return value;
+    };
 
     if (keyLower.includes('长') || keyLower.includes('length') || keyLower.includes('длина')) {
-      if (!length) length = numVal;
+      if (!length) length = toMillimeters(numVal);
     } else if (keyLower.includes('宽') || keyLower.includes('width') || keyLower.includes('ширина')) {
-      if (!width) width = numVal;
+      if (!width) width = toMillimeters(numVal);
     } else if (keyLower.includes('高') || keyLower.includes('height') || keyLower.includes('высота')) {
-      if (!height) height = numVal;
+      if (!height) height = toMillimeters(numVal);
     } else if (keyLower.includes('重量') || keyLower.includes('weight') || keyLower.includes('вес')) {
       if (!weight) {
         const unitMatch = valStr.match(/(kg|g|克|千克)/i);

@@ -81,6 +81,69 @@ def _should_accept_category_match(match_result, platform):
     )
 
 
+def _resolve_category_from_type_id(type_id, description_category_id=None):
+    """Resolve an Ozon Type ID from the local category tree without guessing."""
+    try:
+        normalized_type_id = int(type_id)
+    except (TypeError, ValueError):
+        return {'matched': False, 'reason': 'Type ID 无效', 'candidates': []}
+
+    from models.category import OzonCategory
+    rows = OzonCategory.find_type_candidates(normalized_type_id)
+    if not rows:
+        return {
+            'matched': False,
+            'reason': f'Type ID {normalized_type_id} 不在本地 Ozon 类目库中',
+            'candidates': [],
+        }
+
+    def candidate(row):
+        desc_id = int(row.get('resolved_description_category_id') or 0)
+        names = [
+            row.get('root_category_name'),
+            row.get('parent_category_name'),
+            row.get('category_name'),
+        ]
+        label = ' / '.join(str(name).strip() for name in names if str(name or '').strip())
+        return {
+            'description_category_id': desc_id,
+            'type_id': normalized_type_id,
+            'label': label,
+            'type_name': row.get('category_name') or '',
+        }
+
+    candidates = [candidate(row) for row in rows]
+    selected = None
+    if description_category_id not in (None, ''):
+        try:
+            normalized_desc_id = int(description_category_id)
+            selected = next(
+                (item for item in candidates if item['description_category_id'] == normalized_desc_id),
+                None,
+            )
+        except (TypeError, ValueError):
+            pass
+    if selected is None and len(candidates) == 1:
+        selected = candidates[0]
+
+    if selected:
+        return {
+            **selected,
+            'matched': True,
+            'confidence': 'high',
+            '_source': 'type_id_database',
+            'reason': f'通过 Type ID {normalized_type_id} 从本地类目库精确匹配',
+            'candidates': candidates,
+        }
+    return {
+        'matched': False,
+        'confidence': 'medium',
+        '_source': 'type_id_ambiguous',
+        'reason': f'Type ID {normalized_type_id} 对应多个类目，需要 descriptionCategoryId 消歧',
+        'candidates': candidates,
+    }
+
+
 def _normalize_source_category(product_data):
     """Canonicalize category signals emitted by different 1688 page versions."""
     platform = str(product_data.get('platform') or '').strip().lower()
@@ -335,8 +398,122 @@ def _clean_marketplace_product(product_data):
     return product_data
 
 
+def _positive_number(value):
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return 0
+    return number if number > 0 else 0
+
+
+def _normalize_collected_dimensions(product_data):
+    """Keep persisted package dimensions in mm and repair repeated conversion."""
+    dimensions = product_data.get('dimensions')
+    if not isinstance(dimensions, dict):
+        dimensions = {}
+
+    skus = product_data.get('skus')
+    if not isinstance(skus, list) or not skus:
+        skus = product_data.get('skuList')
+    first_sku = next((row for row in (skus or []) if isinstance(row, dict)), {})
+
+    aliases = {
+        'length': ('length', 'depth'),
+        'width': ('width',),
+        'height': ('height',),
+    }
+    name_tokens = {
+        'length': ('长度', '长', 'длина', 'length'),
+        'width': ('宽度', '宽', 'ширина', 'width'),
+        'height': ('高度', '高', 'высота', 'height'),
+    }
+
+    def attribute_mm(field):
+        for attr in product_data.get('attributes') or []:
+            if not isinstance(attr, dict):
+                continue
+            name = str(attr.get('name') or '').lower()
+            if not any(token in name for token in name_tokens[field]):
+                continue
+            raw_value = attr.get('value')
+            if _is_empty_value(raw_value):
+                raw_value = attr.get('sourceValue') or attr.get('source_value')
+            number_match = re.search(r'\d+(?:[.,]\d+)?', str(raw_value or ''))
+            if not number_match:
+                continue
+            number = float(number_match.group(0).replace(',', '.'))
+            unit_text = f'{name} {str(raw_value).lower()}'
+            if any(unit in unit_text for unit in ('毫米', 'mm', 'мм')):
+                return number
+            if any(unit in unit_text for unit in ('厘米', '公分', 'cm', 'см')):
+                return number * 10
+            if '米' in unit_text or re.search(r'(^|\W)м($|\W)', unit_text):
+                return number * 1000
+        return 0
+
+    for field, field_aliases in aliases.items():
+        value = _positive_number(product_data.get(field))
+        if not value:
+            value = next(
+                (_positive_number(dimensions.get(alias)) for alias in field_aliases
+                 if _positive_number(dimensions.get(alias))),
+                0,
+            )
+        sku_value = next(
+            (_positive_number(first_sku.get(alias)) for alias in field_aliases
+             if _positive_number(first_sku.get(alias))),
+            0,
+        )
+        attr_value = attribute_mm(field)
+
+        # An oversized top-level value is repaired only when an independent
+        # SKU or unit-bearing attribute proves the intended mm value. SKU rows
+        # already use mm and are the strongest repair signal for legacy
+        # 30 cm -> 30000 mm and 330 mm -> 33000 mm conversion defects.
+        if value > 3000 and 0 < sku_value <= 3000:
+            value = sku_value
+        elif value > 3000 and 0 < attr_value <= 3000:
+            value = attr_value
+
+        if value:
+            normalized = int(value) if value.is_integer() else value
+            product_data[field] = normalized
+            if dimensions:
+                dimension_key = 'depth' if field == 'length' and 'depth' in dimensions else field
+                dimensions[dimension_key] = normalized
+
+    if dimensions:
+        product_data['dimensions'] = dimensions
+    return product_data
+
+
 def _normalize_publish_fields_for_persistence(product_data):
     """Persist the same canonical SKU/color data later used by Ozon assembly."""
+    attrs = product_data.get('attributes')
+    if isinstance(attrs, list):
+        normalized_attrs = []
+        for raw_attr in attrs:
+            if not isinstance(raw_attr, dict):
+                continue
+            attr = dict(raw_attr)
+            if _is_empty_value(attr.get('value')):
+                source_value = attr.get('sourceValue')
+                if _is_empty_value(source_value):
+                    source_value = attr.get('source_value')
+                if not _is_empty_value(source_value):
+                    attr['value'] = source_value
+            if attr.get('dictionary_value_id') is None:
+                dictionary_value_id = attr.get('dictionaryValueId') or attr.get('value_id')
+                if dictionary_value_id is not None:
+                    attr['dictionary_value_id'] = dictionary_value_id
+            if not isinstance(attr.get('dictionary_value_ids'), list):
+                dictionary_value_ids = attr.get('dictionaryValueIds') or attr.get('value_ids')
+                if isinstance(dictionary_value_ids, list):
+                    attr['dictionary_value_ids'] = dictionary_value_ids
+            normalized_attrs.append(attr)
+        product_data['attributes'] = normalized_attrs
+
+    _normalize_collected_dimensions(product_data)
     _normalize_product_video_fields(product_data)
     ensure_platform_sku_codes(product_data)
     try:
@@ -987,6 +1164,24 @@ def collect_product():
         # categoryMatch 是验证后的规范类目来源，必须同步回顶层字段。
         # 历史数据曾出现顶层 39417、categoryMatch 17027904 的双重状态。
         canonical_category = merged.get('categoryMatch') or {}
+        incoming_type_id = product_data.get('typeId') or product_data.get('type_id')
+        if incoming_type_id:
+            type_resolution = _resolve_category_from_type_id(
+                incoming_type_id,
+                product_data.get('descriptionCategoryId'),
+            )
+            if type_resolution.get('matched'):
+                canonical_category = {
+                    **type_resolution,
+                    'sourceCategory': source_category,
+                }
+                merged['categoryMatch'] = canonical_category
+            elif type_resolution.get('candidates') and not canonical_category.get('matched'):
+                canonical_category = {
+                    **type_resolution,
+                    'sourceCategory': source_category,
+                }
+                merged['categoryMatch'] = canonical_category
         if canonical_category.get('matched'):
             canonical_desc_id = canonical_category.get('description_category_id') or canonical_category.get('descriptionCategoryId')
             canonical_type_id = canonical_category.get('type_id') or canonical_category.get('typeId')
@@ -1069,10 +1264,42 @@ def collect_product():
             'reason': '手动创建商品，请在编辑页选择类目',
         })
     else:
-        # 验证采集器提取的 descriptionCategoryId 是否有效
+        # Type ID 是 Ozon 原生 L3 标识，优先直接查询本地类目库。
         raw_desc_id = product_data.get('descriptionCategoryId')
+        raw_type_id = product_data.get('typeId') or product_data.get('type_id')
         need_match = True
-        if raw_desc_id:
+        type_resolution = None
+        if raw_type_id:
+            try:
+                type_resolution = _resolve_category_from_type_id(raw_type_id, raw_desc_id)
+                if type_resolution.get('matched'):
+                    need_match = False
+                    product_data['descriptionCategoryId'] = type_resolution['description_category_id']
+                    product_data['typeId'] = type_resolution['type_id']
+                    product_data['categoryMatch'] = {
+                        **type_resolution,
+                        'sourceCategory': source_category,
+                    }
+                    print(
+                        f'[采集] Type ID 数据库精确匹配: typeId={type_resolution["type_id"]}, '
+                        f'descriptionCategoryId={type_resolution["description_category_id"]}'
+                    )
+                elif type_resolution.get('candidates'):
+                    need_match = False
+                    product_data['categoryMatch'] = {
+                        **type_resolution,
+                        'sourceCategory': source_category,
+                    }
+                    print(
+                        f'[采集] Type ID={raw_type_id} 存在多个类目候选，'
+                        f'等待 descriptionCategoryId 消歧'
+                    )
+            except Exception as e:
+                import logging
+                logging.warning(f'[采集] Type ID 数据库匹配异常: {e}')
+
+        # Type ID 未能唯一定位时，再验证 descriptionCategoryId 或进入文本匹配。
+        if need_match and raw_desc_id:
             try:
                 from services.ozon_api import validate_category_pair, validate_description_category_id
                 v = validate_description_category_id(raw_desc_id)
@@ -1399,6 +1626,13 @@ def update_product(product_id):
                     'candidates': [],
                     'reason': '缺少产品类目信息',
                 }
+
+    persisted_candidate = dict(existing_product)
+    persisted_candidate.update(update_data)
+    _normalize_collected_dimensions(persisted_candidate)
+    for field in ('length', 'width', 'height', 'dimensions'):
+        if field in persisted_candidate:
+            update_data[field] = persisted_candidate[field]
 
     updated = Product.update(product_id, update_data)
     if not updated:

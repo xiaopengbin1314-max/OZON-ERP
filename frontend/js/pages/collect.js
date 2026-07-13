@@ -4090,7 +4090,17 @@ function collectCategoryAttributes() {
           dictValueId = parseInt(selectEl.dataset.savedValueId) || null;
         }
         if (dictValueId) {
-          attrs.push({ id: attrId, dictionary_value_id: dictValueId });
+          const optionText = String(selectEl.selectedOptions?.[0]?.textContent || '')
+            .replace(/（Ozon当前值）\s*$/, '')
+            .trim();
+          const valueText = String(
+            selectEl.dataset.savedValueText || optionText || ''
+          ).trim();
+          attrs.push({
+            id: attrId,
+            dictionary_value_id: dictValueId,
+            ...(valueText ? { value: valueText } : {}),
+          });
         }
       }
       return;
@@ -6100,7 +6110,7 @@ async function loadCategoryAttributes(descCatId, typeId, options = {}) {
   try {
     let requestPromise = _categoryAttrPending.get(cacheKey);
     if (!requestPromise) {
-      requestPromise = Api.getCategoryAttributes(descCatId, typeId, language)
+      requestPromise = Api.getCategoryAttributes(descCatId, typeId, language, forceRefresh)
         .finally(() => _categoryAttrPending.delete(cacheKey));
       _categoryAttrPending.set(cacheKey, requestPromise);
     } else {
@@ -6660,6 +6670,12 @@ async function renderCategoryAttributes(attributes, options = {}) {
   renderModelAttr(modelNameAttr);
   // 简介渲染到基本信息区（JSON富内容下方），作为通用属性独立展示
   renderAnnotationAttr(annotationAttr);
+
+  // Bind saved dictionary IDs before loading options. Previously the options
+  // request could finish (or a cached schema could render again) before
+  // fillAttributeValues ran, leaving valid fields such as 类型 (8229) on the
+  // placeholder even though the product already carried dictionary_value_id.
+  primeSavedAttributeSelectValues(window._editingProduct?.attributes);
 
   // 批量预加载所有 select 的下拉选项（await 确保加载完成）
   await batchPreloadAttrOptions();
@@ -7520,6 +7536,45 @@ function toggleAttrGroup(headerEl) {
 /** 前端字典值内存缓存 */
 const _attrValuesCache = {};
 
+/** 在字典选项加载前暂存已保存的单选值，消除异步回填竞态。 */
+function primeSavedAttributeSelectValues(savedAttrs) {
+  const attributes = Array.isArray(savedAttrs) ? savedAttrs : [];
+
+  attributes.forEach(raw => {
+    if (!raw || typeof raw !== 'object') return;
+    const attrId = raw.id || raw.attrId || raw.attribute_id || raw.attributeId;
+    if (!attrId) return;
+
+    const nested = Array.isArray(raw.values) ? raw.values : [];
+    const nestedValue = nested.find(value => value && typeof value === 'object') || {};
+    const savedId = raw.dictionary_value_id
+      || raw.dictionaryValueId
+      || raw.value_id
+      || nestedValue.dictionary_value_id
+      || nestedValue.id;
+    const savedText = raw.value ?? raw.sourceValue ?? raw.source_value ?? nestedValue.value ?? '';
+    if (!savedId && !savedText) return;
+
+    const selectEl = Array.from(document.querySelectorAll('#attrList select[data-attr-id]'))
+      .find(el => String(el.dataset.attrId) === String(attrId));
+    if (!selectEl || selectEl.dataset.attrType === 'boolean') return;
+
+    if (savedId) selectEl.dataset.savedValueId = String(savedId);
+    if (savedText !== '') selectEl.dataset.savedValueText = String(savedText);
+    if (selectEl.dataset.loaded === '1') _applySavedValueId(selectEl);
+  });
+
+  // Ozon's product type attribute uses the same dictionary value ID as the
+  // selected category Type ID. This is an authoritative fallback when older
+  // collection records omitted attribute 8229 entirely.
+  const typeSelect = document.querySelector('#attrList select[data-attr-id="8229"]');
+  const selectedTypeId = window._selectedCategory?.type_id;
+  if (typeSelect && selectedTypeId && !typeSelect.dataset.savedValueId) {
+    typeSelect.dataset.savedValueId = String(selectedTypeId);
+    if (typeSelect.dataset.loaded === '1') _applySavedValueId(typeSelect);
+  }
+}
+
 /** 批量预加载所有 select 的下拉选项 */
 async function batchPreloadAttrOptions() {
   const selects = document.querySelectorAll('#attrList select[data-attr-id], #skuAttrList select[data-attr-id]');
@@ -8132,9 +8187,19 @@ function normalizeCollectedAttributes(attrs) {
         return normalized;
       }
       // 已是标准格式，透传
+      const sourceValue = a.value !== undefined && a.value !== null && a.value !== ''
+        ? a.value
+        : (a.sourceValue ?? a.source_value ?? '');
       const normalized = Object.assign({}, a, {
-        value: normalizeAttributeValue(a.value),
+        value: normalizeAttributeValue(sourceValue),
       });
+      if (normalized.dictionary_value_id === undefined) {
+        normalized.dictionary_value_id = a.dictionaryValueId ?? a.value_id;
+      }
+      if (!Array.isArray(normalized.dictionary_value_ids)) {
+        const sourceIds = a.dictionaryValueIds ?? a.value_ids;
+        if (Array.isArray(sourceIds)) normalized.dictionary_value_ids = sourceIds;
+      }
       // Older records may contain the Ozon API nested values shape.
       if (isRichContent && !normalized.value && Array.isArray(a.values)) {
         const nested = a.values.find(v => v && v.value !== undefined);

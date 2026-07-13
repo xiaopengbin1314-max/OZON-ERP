@@ -28,6 +28,27 @@ class OzonCategory:
         return query("SELECT * FROM ozon_categories WHERE type_id = ? AND level = 3", (type_id,), one=True)
 
     @staticmethod
+    def find_type_candidates(type_id):
+        """按 Type ID 返回带父类目上下文的全部有效 L3 候选。"""
+        return query(
+            """SELECT c3.id, c3.type_id, c3.category_name, c3.category_name_zh,
+                      c3.category_name_ru, c3.disabled,
+                      c2.description_category_id AS resolved_description_category_id,
+                      c2.category_name AS parent_category_name,
+                      c2.category_name_zh AS parent_category_name_zh,
+                      c2.category_name_ru AS parent_category_name_ru,
+                      c1.category_name AS root_category_name,
+                      c1.category_name_zh AS root_category_name_zh,
+                      c1.category_name_ru AS root_category_name_ru
+               FROM ozon_categories c3
+               JOIN ozon_categories c2 ON c2.id = c3.parent_id
+               LEFT JOIN ozon_categories c1 ON c1.id = c2.parent_id
+               WHERE c3.level = 3 AND c3.type_id = ? AND c3.disabled = 0
+               ORDER BY c2.description_category_id, c3.id""",
+            (type_id,)
+        )
+
+    @staticmethod
     def find_by_description_category_id(desc_cat_id, level=None):
         """根据 description_category_id 查询"""
         if level:
@@ -298,27 +319,45 @@ class CategoryAttribute:
     """类目属性模型（每个 L3 类目的特征/属性）"""
 
     @staticmethod
-    def find_by_type_id(type_id):
-        """获取某个 L3 类目的所有属性"""
+    def find_by_category(description_category_id, type_id):
+        """获取指定 description category + L3 type 的所有属性。"""
         return query(
-            "SELECT * FROM ozon_category_attributes WHERE type_id = ? ORDER BY is_required DESC, group_name, name",
-            (type_id,)
+            """SELECT * FROM ozon_category_attributes
+               WHERE description_category_id = ? AND type_id = ?
+               ORDER BY is_required DESC, group_name, name""",
+            (description_category_id, type_id)
         )
 
     @staticmethod
-    def find_by_type_id_and_attr_id(type_id, attribute_id):
-        """获取单个属性"""
+    def find_by_category_and_attr_id(description_category_id, type_id, attribute_id):
+        """获取指定类目上下文中的单个属性。"""
         return query(
-            "SELECT * FROM ozon_category_attributes WHERE type_id = ? AND attribute_id = ?",
-            (type_id, attribute_id), one=True
+            """SELECT * FROM ozon_category_attributes
+               WHERE description_category_id = ? AND type_id = ? AND attribute_id = ?""",
+            (description_category_id, type_id, attribute_id), one=True
         )
 
     @staticmethod
-    def has_attributes(type_id):
-        """检查某个类目是否已同步属性"""
+    def find_by_category_and_attr_ids(description_category_id, type_id, attribute_ids):
+        """一次读取指定类目中的多个属性，避免批量接口逐项查询。"""
+        ids = list(dict.fromkeys(int(attr_id) for attr_id in attribute_ids if attr_id))
+        if not ids:
+            return []
+        placeholders = ','.join('?' for _ in ids)
+        return query(
+            f"""SELECT * FROM ozon_category_attributes
+                WHERE description_category_id = ? AND type_id = ?
+                  AND attribute_id IN ({placeholders})""",
+            (description_category_id, type_id, *ids)
+        )
+
+    @staticmethod
+    def has_attributes(description_category_id, type_id):
+        """检查指定类目上下文是否已同步属性。"""
         row = query(
-            "SELECT COUNT(*) AS cnt FROM ozon_category_attributes WHERE type_id = ?",
-            (type_id,), one=True
+            """SELECT COUNT(*) AS cnt FROM ozon_category_attributes
+               WHERE description_category_id = ? AND type_id = ?""",
+            (description_category_id, type_id), one=True
         )
         return (row['cnt'] if row else 0) > 0
 
@@ -335,8 +374,8 @@ class CategoryAttribute:
         return row['cnt'] if row else 0
 
     @staticmethod
-    def replace_for_type_id(type_id, description_category_id, attrs):
-        """全量替换某个类目的属性（先删后插）
+    def replace_for_category(description_category_id, type_id, attrs):
+        """全量替换指定类目上下文的属性（先删后插）。
 
         参数 attrs: list of dict，每个含:
             attribute_id, name, name_zh, name_ru, description, attr_type,
@@ -346,7 +385,11 @@ class CategoryAttribute:
         from db import get_connection
         conn = get_connection()
         try:
-            conn.execute("DELETE FROM ozon_category_attributes WHERE type_id = ?", (type_id,))
+            conn.execute(
+                """DELETE FROM ozon_category_attributes
+                   WHERE description_category_id = ? AND type_id = ?""",
+                (description_category_id, type_id)
+            )
             conn.executemany(
                 """INSERT OR REPLACE INTO ozon_category_attributes
                    (description_category_id, type_id, attribute_id, name, name_zh, name_ru,
@@ -376,9 +419,9 @@ class CategoryAttribute:
             conn.close()
 
     @staticmethod
-    def get_attributes_with_dict(type_id):
+    def get_attributes_with_dict(description_category_id, type_id):
         """获取类目属性列表，并标记哪些有字典值需要加载"""
-        rows = CategoryAttribute.find_by_type_id(type_id)
+        rows = CategoryAttribute.find_by_category(description_category_id, type_id)
         result = []
         for r in rows:
             attr = dict(r)
@@ -443,6 +486,21 @@ class AttributeDictionaryValue:
             (dictionary_id, type_id, description_category_id), one=True
         )
         return (row['cnt'] if row else 0) > 0
+
+    @staticmethod
+    def find_by_dictionary_ids(dictionary_ids, type_id=0, description_category_id=0):
+        """一次读取当前类目下多个字典的可选值。"""
+        ids = list(dict.fromkeys(int(dictionary_id) for dictionary_id in dictionary_ids if dictionary_id))
+        if not ids:
+            return []
+        placeholders = ','.join('?' for _ in ids)
+        return query(
+            f"""SELECT * FROM ozon_attribute_dictionary_values
+                WHERE description_category_id = ? AND type_id = ?
+                  AND dictionary_id IN ({placeholders})
+                ORDER BY dictionary_id, value""",
+            (description_category_id, type_id, *ids)
+        )
 
     @staticmethod
     def count():

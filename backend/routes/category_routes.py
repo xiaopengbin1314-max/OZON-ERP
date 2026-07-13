@@ -74,8 +74,8 @@ def get_category_attributes():
     # 1. 优先从数据库属性库读取
     if not force_refresh:
         from models.category import CategoryAttribute
-        if CategoryAttribute.has_attributes(type_id):
-            attrs = CategoryAttribute.get_attributes_with_dict(type_id)
+        attrs = CategoryAttribute.get_attributes_with_dict(description_category_id, type_id)
+        if attrs:
             # 过滤掉全类目通用属性（已作为 item 顶层字段提交）
             attrs = _filter_common_attrs(attrs)
             # 按 group_name 分组排序，必填在前
@@ -91,7 +91,7 @@ def get_category_attributes():
 
     # 从数据库读取刚写入的属性
     from models.category import CategoryAttribute
-    attrs = CategoryAttribute.get_attributes_with_dict(type_id)
+    attrs = CategoryAttribute.get_attributes_with_dict(description_category_id, type_id)
     # 过滤掉全类目通用属性（已作为 item 顶层字段提交）
     attrs = _filter_common_attrs(attrs)
     attrs.sort(key=lambda x: (0 if x.get('is_required') else 1, x.get('group_name', ''), x.get('name', '')))
@@ -116,19 +116,23 @@ def get_attribute_values():
 
     # 查询属性的 dictionary_id
     from models.category import CategoryAttribute, AttributeDictionaryValue
-    attr = CategoryAttribute.find_by_type_id_and_attr_id(type_id, attribute_id)
+    attr = CategoryAttribute.find_by_category_and_attr_id(
+        description_category_id, type_id, attribute_id
+    )
     dictionary_id = attr.get('dictionary_id', 0) if attr else 0
 
     # 1. 优先从数据库读取（有 dictionary_id 且已同步）
     if dictionary_id and not force_refresh:
-        if AttributeDictionaryValue.has_values(dictionary_id, type_id, description_category_id):
-            rows = AttributeDictionaryValue.find_by_dictionary_id(dictionary_id, type_id, description_category_id)
+        rows = AttributeDictionaryValue.find_by_dictionary_id(
+            dictionary_id, type_id, description_category_id
+        )
+        if rows:
             values = [dict(r) for r in rows]
             return success_response(data=values, msg=f'从属性库读取 {len(values)} 个可选值')
 
     # 2. 有 dictionary_id 但未同步 → 异步后台同步，立即返回 syncing
     if dictionary_id:
-        sync_key = f'{type_id}_{attribute_id}'
+        sync_key = f'{description_category_id}_{type_id}_{attribute_id}'
         if not is_attr_values_syncing(sync_key):
             start_attr_values_sync(
                 sync_key,
@@ -496,20 +500,35 @@ def batch_get_attribute_values():
     if not description_category_id or not type_id or not attribute_ids:
         return error_response(msg='缺少必要参数', code=400)
 
+    attrs = CategoryAttribute.find_by_category_and_attr_ids(
+        description_category_id, type_id, attribute_ids
+    )
+    attrs_by_id = {int(attr['attribute_id']): attr for attr in attrs}
+    dictionary_ids = {
+        int(attr.get('dictionary_id') or 0)
+        for attr in attrs
+        if int(attr.get('dictionary_id') or 0) > 0
+    }
+    cached_rows = AttributeDictionaryValue.find_by_dictionary_ids(
+        dictionary_ids, type_id, description_category_id
+    )
+    cached_by_dictionary = {}
+    for row in cached_rows:
+        cached_by_dictionary.setdefault(int(row['dictionary_id']), []).append(dict(row))
+
     results = {}
-    pending_attrs = []  # 需要后台同步的属性
+    pending_attrs = []
+    for raw_attr_id in attribute_ids:
+        attr_id = int(raw_attr_id)
+        attr = attrs_by_id.get(attr_id)
+        dictionary_id = int(attr.get('dictionary_id') or 0) if attr else 0
+        cached_values = cached_by_dictionary.get(dictionary_id, [])
 
-    for attr_id in attribute_ids:
-        attr = CategoryAttribute.find_by_type_id_and_attr_id(type_id, attr_id)
-        dictionary_id = attr.get('dictionary_id', 0) if attr else 0
-
-        if dictionary_id and AttributeDictionaryValue.has_values(dictionary_id, type_id, description_category_id):
-            # 已缓存，直接返回
-            rows = AttributeDictionaryValue.find_by_dictionary_id(dictionary_id, type_id, description_category_id)
-            results[str(attr_id)] = [dict(r) for r in rows]
+        if dictionary_id and cached_values:
+            results[str(attr_id)] = cached_values
         elif dictionary_id:
             # 未缓存，启动后台同步
-            sync_key = f'{type_id}_{attr_id}'
+            sync_key = f'{description_category_id}_{type_id}_{attr_id}'
             if not is_attr_values_syncing(sync_key):
                 start_attr_values_sync(
                     sync_key, description_category_id, type_id, attr_id, dictionary_id, False

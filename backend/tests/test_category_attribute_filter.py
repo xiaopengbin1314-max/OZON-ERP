@@ -13,7 +13,9 @@ from routes.product_routes import (
     _clean_marketplace_product,
     _extract_ozon_product_type_signal,
     _normalize_product_video_fields,
+    _normalize_publish_fields_for_persistence,
     _normalize_source_category,
+    _resolve_category_from_type_id,
 )
 from services.ozon_api import validate_category_pair
 from services.category_matcher import (
@@ -26,6 +28,64 @@ from services.category_matcher import (
 
 
 class CategoryAttributeFilterTests(unittest.TestCase):
+    def test_collected_source_value_survives_attribute_schema_loading_and_save(self):
+        product = {
+            'platform': 'ozon',
+            'attributes': [
+                {
+                    'id': 8229,
+                    'name': '类型',
+                    'sourceValue': 'Сетка антимоскитная',
+                    'dictionary_value_id': 95652,
+                },
+                {
+                    'id': 21690,
+                    'name': '蚊帐的类型',
+                    'sourceValue': 'Стандартная',
+                    'dictionaryValueId': 971218472,
+                },
+            ],
+            'skus': [],
+        }
+
+        _normalize_publish_fields_for_persistence(product)
+
+        self.assertEqual('Сетка антимоскитная', product['attributes'][0]['value'])
+        self.assertEqual(95652, product['attributes'][0]['dictionary_value_id'])
+        self.assertEqual('Стандартная', product['attributes'][1]['value'])
+        self.assertEqual(971218472, product['attributes'][1]['dictionary_value_id'])
+
+    @patch('models.category.OzonCategory.find_type_candidates')
+    def test_unique_type_id_resolves_directly_from_database(self, find_candidates):
+        find_candidates.return_value = [{
+            'resolved_description_category_id': 61372948,
+            'category_name': 'Зонты',
+            'parent_category_name': 'Аксессуары',
+            'root_category_name': 'Одежда',
+        }]
+
+        result = _resolve_category_from_type_id(94034)
+
+        self.assertTrue(result['matched'])
+        self.assertEqual(61372948, result['description_category_id'])
+        self.assertEqual(94034, result['type_id'])
+        self.assertEqual('type_id_database', result['_source'])
+
+    @patch('models.category.OzonCategory.find_type_candidates')
+    def test_duplicate_type_id_requires_description_category(self, find_candidates):
+        find_candidates.return_value = [
+            {'resolved_description_category_id': 100, 'category_name': 'A'},
+            {'resolved_description_category_id': 200, 'category_name': 'B'},
+        ]
+
+        ambiguous = _resolve_category_from_type_id(91260)
+        resolved = _resolve_category_from_type_id(91260, 200)
+
+        self.assertFalse(ambiguous['matched'])
+        self.assertEqual(2, len(ambiguous['candidates']))
+        self.assertTrue(resolved['matched'])
+        self.assertEqual(200, resolved['description_category_id'])
+
     def test_ozon_video_attributes_are_classified_into_product_video_fields(self):
         product = {
             'attributes': [

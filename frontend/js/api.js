@@ -413,8 +413,9 @@ const Api = (() => {
   }
 
   /** 获取类目下的特征（属性） */
-  function getCategoryAttributes(descriptionCategoryId, typeId, lang = 'ZH_HANS') {
-    return request(`/api/categories/attributes?description_category_id=${descriptionCategoryId}&type_id=${typeId}&lang=${lang}`);
+  function getCategoryAttributes(descriptionCategoryId, typeId, lang = 'ZH_HANS', refresh = false) {
+    const refreshParam = refresh ? '&refresh=1' : '';
+    return request(`/api/categories/attributes?description_category_id=${descriptionCategoryId}&type_id=${typeId}&lang=${lang}${refreshParam}`);
   }
 
   /** 搜索属性字典值（适用于品牌等大字典，不需要全量加载） */

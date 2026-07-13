@@ -11,6 +11,7 @@ if BACKEND_DIR not in sys.path:
 from routes.product_routes import (
     _classify_ozon_content,
     _merge_scanner_skus,
+    _normalize_collected_dimensions,
     _normalize_publish_fields_for_persistence,
     _should_accept_category_match,
     _sync_rich_content_attribute,
@@ -25,6 +26,30 @@ from services.publish_service import (
 
 
 class CollectionPublishIntegrityTests(unittest.TestCase):
+    def test_repeated_dimension_conversion_uses_sku_mm_value(self):
+        product = {
+            'length': 33000,
+            'width': 8000,
+            'height': 8000,
+            'skus': [{'length': 330, 'width': 80, 'height': 80}],
+        }
+
+        _normalize_collected_dimensions(product)
+
+        self.assertEqual(330, product['length'])
+        self.assertEqual(80, product['width'])
+        self.assertEqual(80, product['height'])
+
+    def test_dimension_uses_explicit_centimeter_attribute_without_sku(self):
+        product = {
+            'length': 30000,
+            'attributes': [{'name': '折叠长度，厘米', 'value': '30'}],
+        }
+
+        _normalize_collected_dimensions(product)
+
+        self.assertEqual(300, product['length'])
+
     def test_ozon_description_heading_is_removed_before_persistence(self):
         product = {
             'platform': 'ozon',

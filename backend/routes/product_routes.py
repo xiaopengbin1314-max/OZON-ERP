@@ -38,7 +38,8 @@ ALLOWED_UPDATE_FIELDS = {
     # 采集箱管理
     'group', 'store', 'storeId', 'assignee', 'note', 'claimedAt',
     # 富内容
-    'richContent', 'contentType',
+    'richContent', 'contentType', 'contentEvidence', 'scannerVersion',
+    'variantDetailCoverage',
     # 清洗标记（持久化，避免前端重复清洗覆盖用户编辑）
     '_cleaned',
 }
@@ -51,6 +52,33 @@ ALLOWED_BATCH_UPDATE_FIELDS = {
 
 def _is_empty_value(value):
     return value is None or value == '' or value == [] or value == {}
+
+
+def _strip_description_heading(value):
+    """Remove Ozon's rendered description heading without touching body text."""
+    if value is None:
+        return ''
+    text = html.unescape(str(value)).replace('\r\n', '\n').replace('\r', '\n').strip()
+    return re.sub(
+        r'^Описание(?:\s*[:：\-–—]\s*|\s+)(?=\S)',
+        '',
+        text,
+        count=1,
+        flags=re.IGNORECASE,
+    ).strip()
+
+
+def _should_accept_category_match(match_result, platform):
+    """Reject weak keyword guesses for Ozon's untranslated category names."""
+    if not isinstance(match_result, dict) or not match_result.get('matched'):
+        return False
+    confidence = str(match_result.get('confidence') or 'low').lower()
+    if confidence == 'high':
+        return True
+    source = str(match_result.get('_source') or 'keyword').lower()
+    return confidence == 'medium' and not (
+        str(platform or '').lower() == 'ozon' and source == 'keyword'
+    )
 
 
 def _normalize_source_category(product_data):
@@ -82,6 +110,142 @@ def _normalize_source_category(product_data):
             product_data['sourceCategoryId'] = str(source_id).strip()
 
     return product_data.get('categoryPath') or product_data.get('category') or ''
+
+
+def _extract_ozon_product_type_signal(product_data):
+    """Return Ozon's own product type characteristic as a strong L3 signal."""
+    if str(product_data.get('platform') or '').strip().lower() != 'ozon':
+        return ''
+    for attr in product_data.get('attributes') or []:
+        if not isinstance(attr, dict):
+            continue
+        attr_id = str(attr.get('id') or attr.get('attrId') or attr.get('attribute_id') or '')
+        name = re.sub(r'\s+', ' ', str(attr.get('name') or '')).strip().lower()
+        if attr_id == '8229' or name in {'тип', '类型', 'product type'}:
+            value = attr.get('sourceValue') or attr.get('value') or ''
+            return re.sub(r'\s+', ' ', str(value)).strip()
+    return ''
+
+
+OZON_VIDEO_ATTRIBUTE_IDS = {
+    '21845': 'cover',
+    '21841': 'description',
+}
+OZON_UNUSED_VIDEO_ATTRIBUTE_IDS = {'21837', '22273'}
+
+
+def _normalize_product_video_fields(product_data):
+    """Classify Ozon video attributes into ERP's dedicated video fields."""
+    attrs = product_data.get('attributes') if isinstance(product_data.get('attributes'), list) else []
+    values_by_kind = {}
+
+    def text_values(attr):
+        values = []
+        nested = attr.get('values') if isinstance(attr.get('values'), list) else []
+        for item in nested:
+            if isinstance(item, dict):
+                value = item.get('value') or item.get('url') or item.get('src')
+            else:
+                value = item
+            if value is not None and str(value).strip():
+                values.append(str(value).strip())
+        scalar = attr.get('sourceValue') or attr.get('value')
+        if scalar is not None and str(scalar).strip():
+            values.extend(part.strip() for part in re.split(r'[\r\n;；]+', str(scalar)) if part.strip())
+        return list(dict.fromkeys(values))
+
+    for attr in attrs:
+        if not isinstance(attr, dict):
+            continue
+        attr_id = str(attr.get('id') or attr.get('attrId') or attr.get('attribute_id') or '')
+        kind = OZON_VIDEO_ATTRIBUTE_IDS.get(attr_id)
+        if kind:
+            values_by_kind[kind] = text_values(attr)
+
+    # Seller Center exposes only video cover and video upload. Do not publish
+    # auxiliary video metadata returned by the category schema.
+    product_data['attributes'] = [
+        attr for attr in attrs
+        if str(attr.get('id') or attr.get('attrId') or attr.get('attribute_id') or '')
+        not in OZON_UNUSED_VIDEO_ATTRIBUTE_IDS
+    ]
+
+    def video_url(value):
+        if isinstance(value, dict):
+            value = value.get('url') or value.get('src') or value.get('video_url') or value.get('videoUrl')
+        text = str(value or '').strip()
+        return text if text.startswith(('http://', 'https://', '/api/')) else ''
+
+    has_dedicated_fields = 'coverVideoUrl' in product_data or 'videoList' in product_data
+    existing_videos = [video_url(value) for value in (product_data.get('videos') or [])]
+    existing_videos = list(dict.fromkeys(value for value in existing_videos if value))
+    explicit_cover = next(iter(values_by_kind.get('cover') or []), '')
+    cover = str(product_data.get('coverVideoUrl') or explicit_cover or '').strip()
+    explicit_description = [video_url(value) for value in values_by_kind.get('description', [])]
+    explicit_description = [value for value in explicit_description if value]
+
+    if has_dedicated_fields:
+        description_videos = [video_url(value) for value in (product_data.get('videoList') or [])]
+    elif values_by_kind.get('cover') is not None or values_by_kind.get('description') is not None:
+        description_videos = explicit_description + [value for value in existing_videos if value != cover]
+    else:
+        # Backward compatibility: old ERP data stored cover first in videos[].
+        cover = cover or (existing_videos[0] if existing_videos else '')
+        description_videos = product_data.get('videoList') or existing_videos[1:]
+        description_videos = [video_url(value) for value in description_videos]
+
+    description_videos = list(dict.fromkeys(
+        value for value in description_videos if value and value != cover
+    ))[:5]
+    product_data['coverVideoUrl'] = cover
+    product_data['videoList'] = description_videos
+    product_data['videos'] = list(dict.fromkeys(([cover] if cover else []) + description_videos))
+    product_data['attributes'] = [
+        attr for attr in product_data['attributes']
+        if str(attr.get('id') or attr.get('attrId') or attr.get('attribute_id') or '')
+        not in set(OZON_VIDEO_ATTRIBUTE_IDS) | OZON_UNUSED_VIDEO_ATTRIBUTE_IDS
+    ]
+    if cover:
+        product_data['attributes'].append({
+            'id': 21845,
+            'name': '视频封面',
+            'values': [{'value': cover}],
+        })
+    if description_videos:
+        product_data['attributes'].append({
+            'id': 21841,
+            'name': '产品描述视频',
+            'values': [{'value': value} for value in description_videos],
+        })
+    return product_data
+
+
+def _match_category_with_product_signals(product_data, source_category):
+    """Match Ozon's exact product type first, then use the collected category."""
+    from services.ozon_api import match_category
+
+    platform = product_data.get('platform', 'ozon')
+    title = product_data.get('title', '')
+    description = product_data.get('description', '')
+    type_signal = _extract_ozon_product_type_signal(product_data)
+    if type_signal:
+        type_result = match_category(
+            type_signal, platform, title=title, description=description,
+        )
+        if _should_accept_category_match(type_result, platform):
+            type_result = dict(type_result)
+            type_result['_matchSignal'] = 'ozon_product_type'
+            type_result['_matchSignalValue'] = type_signal
+            return type_result
+
+    result = match_category(
+        source_category, platform, title=title, description=description,
+    )
+    if isinstance(result, dict):
+        result = dict(result)
+        result.setdefault('_matchSignal', 'source_category')
+        result.setdefault('_matchSignalValue', source_category)
+    return result
 
 
 def _clean_marketplace_product(product_data):
@@ -173,6 +337,7 @@ def _clean_marketplace_product(product_data):
 
 def _normalize_publish_fields_for_persistence(product_data):
     """Persist the same canonical SKU/color data later used by Ozon assembly."""
+    _normalize_product_video_fields(product_data)
     ensure_platform_sku_codes(product_data)
     try:
         from services.publish_service import (
@@ -293,6 +458,43 @@ def _merge_product_field(key, existing_value, incoming_value, force_replace=Fals
     if isinstance(existing_value, list) or isinstance(incoming_value, list):
         return _merge_unique_list(existing_value, incoming_value)
     return existing_value
+
+
+def _merge_scanner_skus(existing_value, incoming_value):
+    """Refresh source data by sourceSku while retaining ERP-managed fields."""
+    existing = existing_value if isinstance(existing_value, list) else []
+    incoming = incoming_value if isinstance(incoming_value, list) else []
+    def source_identity(item):
+        if not isinstance(item, dict):
+            return ''
+        return str(
+            item.get('sourceSku') or item.get('source_sku') or
+            item.get('sourceId') or item.get('sku') or item.get('id') or ''
+        ).strip()
+
+    by_source = {
+        source_identity(item): item
+        for item in existing if source_identity(item)
+    }
+    managed_fields = {
+        'skuCode', 'offerId', 'offer_id', 'price', 'oldPrice', 'stock',
+        'weight', 'length', 'width', 'height', 'barcode', 'custom_barcode',
+    }
+    refreshed = []
+    for raw in incoming:
+        if not isinstance(raw, dict):
+            continue
+        item = dict(raw)
+        source_sku = source_identity(item)
+        if source_sku:
+            item['sourceSku'] = source_sku
+        saved = by_source.get(source_sku)
+        if saved:
+            for field in managed_fields:
+                if not _is_empty_value(saved.get(field)):
+                    item[field] = saved[field]
+        refreshed.append(item)
+    return refreshed
 
 
 def _is_rich_content_attr(attr):
@@ -454,8 +656,19 @@ def _classify_ozon_content(product_data):
     """Classify mutually exclusive Ozon description modes from validated data."""
     if str(product_data.get('platform') or '').lower() != 'ozon':
         return ''
+    product_data['description'] = _strip_description_heading(product_data.get('description'))
+    evidence = product_data.get('contentEvidence') if isinstance(product_data.get('contentEvidence'), dict) else {}
+    evidence_mode = str(evidence.get('mode') or '').strip().lower()
+    if evidence_mode == 'plain_description':
+        product_data['richContent'] = ''
+        attrs = product_data.get('attributes')
+        if isinstance(attrs, list):
+            product_data['attributes'] = [attr for attr in attrs if not _is_rich_content_attr(attr)]
+        mode = 'plain_description' if str(product_data.get('description') or '').strip() else 'none'
+        product_data['contentType'] = mode
+        return mode
     rich_json = _rich_content_to_json(product_data.get('richContent'))
-    if rich_json:
+    if rich_json and evidence_mode != 'none':
         product_data['richContent'] = rich_json
         product_data['contentType'] = 'rich_content'
         product_data['description'] = ''
@@ -652,6 +865,11 @@ def collect_product():
         print(f'[采集] 合并更新已有商品数据...')
         merged = dict(existing)
         is_publish_modal = product_data.get('source') == 'extension-publish-modal'
+        is_scanner_refresh = (
+            product_data.get('platform') == 'ozon'
+            and bool(product_data.get('collectedAt'))
+            and not is_publish_modal
+        )
         repair_unclean_1688 = (
             product_data.get('platform') == '1688'
             and not bool(existing.get('_cleaned'))
@@ -676,7 +894,8 @@ def collect_product():
         refresh_fields = {
             'skuList', 'variants', 'category', 'sourceLink', 'sourceName',
             'descriptionCategoryId', 'typeId', 'parentCategoryId',
-            'currency', 'currencyCode', 'richContent',
+            'currency', 'currencyCode', 'richContent', 'contentType', 'contentEvidence',
+            'scannerVersion', 'variantDetailCoverage',
         }
         merge_list_fields = {
             'images', 'detailImages', 'videos', 'videoList',
@@ -699,6 +918,10 @@ def collect_product():
                         v,
                         force_replace=(is_publish_modal and k in publish_modal_replace_fields),
                     )
+                elif is_scanner_refresh and k in {'skus', 'variants', 'skuList', 'rows'}:
+                    merged[k] = _merge_scanner_skus(existing.get(k), v)
+                elif is_scanner_refresh and k == 'skuAttrs':
+                    merged[k] = v
                 else:
                     merged[k] = _merge_product_field(
                         k,
@@ -896,19 +1119,12 @@ def collect_product():
 
         if need_match and source_category:
             try:
-                from services.ozon_api import match_category
                 print(f'[采集] 开始类目匹配: source={source_category[:60]!r}, platform={product_data.get("platform", "ozon")}')
                 # 多信号匹配：传入 title + description 作为辅助信号（对齐妙手做法）
                 # 当类目精确匹配失败时，AI 层会结合标题+描述做语义匹配
-                match_result = match_category(
-                    source_category,
-                    product_data.get('platform', 'ozon'),
-                    title=product_data.get('title', ''),
-                    description=product_data.get('description', ''),
-                )
+                match_result = _match_category_with_product_signals(product_data, source_category)
 
-                confidence = str(match_result.get('confidence') or 'low').lower()
-                if match_result.get('matched') and confidence in ('high', 'medium'):
+                if _should_accept_category_match(match_result, product_data.get('platform')):
                     # 匹配成功：写入类目 ID 和匹配信息
                     product_data['descriptionCategoryId'] = match_result['description_category_id']
                     product_data['typeId'] = match_result['type_id']
@@ -921,6 +1137,8 @@ def collect_product():
                         'type_id': match_result['type_id'],
                         'reason': match_result.get('reason', ''),
                         '_source': match_result.get('_source', 'keyword'),
+                        'matchSignal': match_result.get('_matchSignal', 'source_category'),
+                        'matchSignalValue': match_result.get('_matchSignalValue', source_category),
                     }
                     print(f'[采集] 类目匹配成功: {match_result.get("label", "")} (置信度 {match_result.get("confidence", "")}, 来源 {match_result.get("_source", "keyword")})')
                 else:
@@ -951,7 +1169,6 @@ def collect_product():
             prod_desc = product_data.get('description', '') or ''
             if prod_title.strip() or prod_desc.strip():
                 try:
-                    from services.ozon_api import match_category
                     print(f'[采集] source_category 为空，启用多信号 AI 匹配: title={prod_title[:40]!r}')
                     match_result = match_category(
                         '',
@@ -959,8 +1176,7 @@ def collect_product():
                         title=prod_title,
                         description=prod_desc,
                     )
-                    confidence = str(match_result.get('confidence') or 'low').lower()
-                    if match_result.get('matched') and confidence in ('high', 'medium'):
+                    if _should_accept_category_match(match_result, product_data.get('platform')):
                         product_data['descriptionCategoryId'] = match_result['description_category_id']
                         product_data['typeId'] = match_result['type_id']
                         product_data['categoryMatch'] = {
@@ -1139,13 +1355,14 @@ def update_product(product_id):
                     rem_title = update_data.get('title', existing.get('title', '')) or ''
                     rem_desc = update_data.get('description', existing.get('description', '')) or ''
                     print(f'[更新] 检测到 category 变化({old_category[:30]!r}→{new_category[:30]!r})，重新匹配')
-                    match_result = match_category(
-                        new_category,
-                        update_data.get('platform', existing.get('platform', 'ozon')),
-                        title=rem_title,
-                        description=rem_desc,
-                    )
-                    if match_result.get('matched'):
+                    category_product = dict(existing)
+                    category_product.update(update_data)
+                    category_product['title'] = rem_title
+                    category_product['description'] = rem_desc
+                    match_result = _match_category_with_product_signals(category_product, new_category)
+                    if _should_accept_category_match(
+                        match_result, update_data.get('platform') or existing.get('platform')
+                    ):
                         update_data['descriptionCategoryId'] = match_result['description_category_id']
                         update_data['typeId'] = match_result['type_id']
                         update_data['categoryMatch'] = {
@@ -1157,6 +1374,8 @@ def update_product(product_id):
                             'type_id': match_result['type_id'],
                             'reason': match_result.get('reason', ''),
                             '_source': match_result.get('_source', 'keyword'),
+                            'matchSignal': match_result.get('_matchSignal', 'source_category'),
+                            'matchSignalValue': match_result.get('_matchSignalValue', new_category),
                         }
                         print(f'[更新] 重新匹配成功: {match_result.get("label", "")}')
                     else:

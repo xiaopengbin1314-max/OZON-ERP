@@ -15,6 +15,74 @@ function escapeHtml(str) {
   return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
+const OZON_VIDEO_ATTR_FIELDS = { 21845: 'cover', 21841: 'description', 21837: 'unused', 22273: 'unused' };
+
+function getOzonVideoAttrKind(attr) {
+  const attrId = Number(attr?.id || attr?.attrId || attr?.attribute_id || 0);
+  if (OZON_VIDEO_ATTR_FIELDS[attrId]) return OZON_VIDEO_ATTR_FIELDS[attrId];
+  const name = String(attr?.name || '').toLowerCase();
+  if (name.includes('видеообложка') && name.includes('ссылка')) return 'cover';
+  if ((name.includes('видео: ссылка') || name.includes('视频：链接')) && !name.includes('обложка')) return 'description';
+  if (name.includes('видео: название') || name.includes('视频：标题')) return 'unused';
+  if (name.includes('товары на видео') || name.includes('视频产品')) return 'unused';
+  return '';
+}
+
+function getVideoAttributeValues(attr) {
+  const nested = Array.isArray(attr?.values) ? attr.values : [];
+  const nestedValues = nested.map(item => typeof item === 'object' ? (item?.value || item?.url || item?.src) : item).filter(Boolean);
+  const scalar = attr?.sourceValue || attr?.value || '';
+  const scalarValues = String(scalar).split(/[\r\n;；]+/).map(value => value.trim()).filter(Boolean);
+  return Array.from(new Set([...nestedValues, ...scalarValues].map(value => String(value).trim()).filter(Boolean)));
+}
+
+function normalizeProductVideoData(product) {
+  const attrs = Array.isArray(product?.attributes) ? product.attributes : [];
+  const byKind = {};
+  attrs.forEach(attr => {
+    const kind = getOzonVideoAttrKind(attr);
+    if (kind) byKind[kind] = getVideoAttributeValues(attr);
+  });
+  const existing = Array.from(new Set((product.videos || []).map(value => {
+    if (value && typeof value === 'object') return value.url || value.src || value.video_url || value.videoUrl || '';
+    return value || '';
+  }).filter(Boolean)));
+  const hasExplicitAttrs = Object.prototype.hasOwnProperty.call(byKind, 'cover') || Object.prototype.hasOwnProperty.call(byKind, 'description');
+  let cover = product.coverVideoUrl || byKind.cover?.[0] || '';
+  let descriptions;
+  if (hasExplicitAttrs) {
+    descriptions = [...(byKind.description || []), ...existing.filter(url => url !== cover)];
+  } else {
+    cover = cover || existing[0] || '';
+    descriptions = Array.isArray(product.videoList) ? product.videoList : existing.slice(1);
+  }
+  descriptions = Array.from(new Set(descriptions.filter(url => url && url !== cover))).slice(0, 5);
+  product.coverVideoUrl = cover;
+  product.videoList = descriptions;
+  product.videos = Array.from(new Set([...(cover ? [cover] : []), ...descriptions]));
+  return product;
+}
+
+function syncProductVideoAttributes(product, existingVideoAttrs = []) {
+  const attrs = Array.isArray(product.attributes) ? product.attributes.filter(attr => !getOzonVideoAttrKind(attr)) : [];
+  const schemaByKind = {};
+  (window._currentAttributes || []).forEach(attr => {
+    const kind = getOzonVideoAttrKind(attr);
+    if (kind) schemaByKind[kind] = attr;
+  });
+  existingVideoAttrs.forEach(attr => {
+    const kind = getOzonVideoAttrKind(attr);
+    if (kind && !schemaByKind[kind]) schemaByKind[kind] = attr;
+  });
+  const append = (kind, payload) => {
+    const schema = schemaByKind[kind];
+    if (schema && payload) attrs.push({ id: Number(schema.id), name: schema.name, ...payload });
+  };
+  append('cover', product.coverVideoUrl ? { value: product.coverVideoUrl } : null);
+  append('description', product.videoList?.length ? { values: product.videoList.map(value => ({ value })) } : null);
+  product.attributes = attrs;
+}
+
 /**
  * 将外部图片URL转换为后端代理URL，解决1688/淘宝等防盗链问题
  * data: 开头的 base64 图片不转换
@@ -104,8 +172,31 @@ let allProducts = [];
 /** 已同步商品ID集合：保存后标记，再次编辑时跳过后端拉取；loadProducts 刷新时清空 */
 const _syncedProductIds = new Set();
 
-/** 类目属性结构缓存：按 typeId 缓存，避免每次打开编辑都重新拉取；切换新类目时才拉取 */
+/** 类目属性 Schema 缓存。商品填写值不得进入此缓存。 */
 const _categoryAttrCache = new Map();
+const _categoryAttrPending = new Map();
+const CATEGORY_ATTR_CACHE_TTL = 6 * 60 * 60 * 1000;
+const CATEGORY_ATTR_SCHEMA_VERSION = 'v2';
+let _categoryAttrLoadSeq = 0;
+
+function cloneCategoryAttributeSchema(data) {
+  return JSON.parse(JSON.stringify(Array.isArray(data) ? data : []));
+}
+
+function invalidateCategoryAttributeCache(descriptionCategoryId, typeId) {
+  if (!descriptionCategoryId && !typeId) {
+    _categoryAttrCache.clear();
+    _categoryAttrPending.clear();
+    return;
+  }
+  for (const key of _categoryAttrCache.keys()) {
+    const [cachedDescId, cachedTypeId] = key.split(':');
+    if ((!descriptionCategoryId || String(descriptionCategoryId) === cachedDescId)
+        && (!typeId || String(typeId) === cachedTypeId)) {
+      _categoryAttrCache.delete(key);
+    }
+  }
+}
 
 /** 切换Tab */
 function switchCollectTab(el) {
@@ -490,6 +581,7 @@ async function editProduct(id, opts = {}) {
   // 采集侧的 attributes 可能是：对象 {color:'черный'} / Ozon 原生 [{key:'4497', value:'200'}] / 已标准 [{id, value}]
   // 统一转成 [{id|name, value, dictionary_value_id?}] 数组，否则 fillAttributeValues 的 forEach 会失败
   product.attributes = normalizeCollectedAttributes(product.attributes);
+  normalizeProductVideoData(product);
 
   // Ozon may return product color (10096) as one collection value with nested
   // dictionary IDs. The SKU editor expects one scalar color per SKU; keeping
@@ -790,7 +882,6 @@ async function editProduct(id, opts = {}) {
             <div class="edit-panel" data-panel="category" id="section-category">
               <div class="edit-panel-box">
 
-
               <div class="form-group">
                 <label class="form-label">商品类目 <span class="required">*</span></label>
                 <div class="category-path">
@@ -939,6 +1030,7 @@ async function editProduct(id, opts = {}) {
             <!-- 产品视频 -->
             <div class="edit-panel" data-panel="video" id="section-video">
               <div class="edit-panel-box">
+                <div class="sku-image-title">产品视频</div>
                 <div class="product-video-info-box">
 
                   <!-- 视频规则说明 -->
@@ -974,10 +1066,10 @@ async function editProduct(id, opts = {}) {
                         </div>
                         <div class="upload-video-container">
                           <div class="upload-video-left">
-                            <input type="hidden" id="editCoverVideoUrl" value="${escapeAttr((product.videos && product.videos[0]) || '')}">
-                            <div class="video-wrap add-video-box ${product.videos && product.videos[0] ? 'has-video' : ''}" id="coverVideoWrap" onclick="document.getElementById('coverVideoFile').click()">
-                              ${product.videos && product.videos[0]
-                                ? `<video src="${escapeAttr(product.videos[0])}" muted></video><button class="video-delete-btn" onclick="event.stopPropagation();clearCoverVideo(event)">&times;</button>`
+                            <input type="hidden" id="editCoverVideoUrl" value="${escapeAttr(product.coverVideoUrl || '')}">
+                            <div class="video-wrap add-video-box ${product.coverVideoUrl ? 'has-video' : ''}" id="coverVideoWrap" onclick="document.getElementById('coverVideoFile').click()">
+                              ${product.coverVideoUrl
+                                ? `<video src="${escapeAttr(product.coverVideoUrl)}" muted></video><button class="video-delete-btn" onclick="event.stopPropagation();clearCoverVideo(event)">&times;</button>`
                                 : `<i data-lucide="plus" style="width:24px;height:24px;color:#bbb;"></i>`}
                             </div>
                           </div>
@@ -1005,7 +1097,7 @@ async function editProduct(id, opts = {}) {
                               </div>
                             </div>
                             <div class="upload-video-right" id="descVideoPreview">
-                              ${(product.videos || []).slice(1).map((url, i) => `
+                              ${(product.videoList || []).map((url, i) => `
                               <div class="desc-video-item" data-url="${url}">
                                 <video src="${url}" muted></video>
                                 <button class="video-delete-btn" onclick="removeDescVideo(this)">&times;</button>
@@ -1145,8 +1237,8 @@ async function editProduct(id, opts = {}) {
           window._selectedCategory.description_category_id,
           window._selectedCategory.type_id,
           { preserveSkuAttrs: true }
-        ).then(() => {
-          if (window._editSessionId !== sessionId) {
+        ).then((loadResult) => {
+          if (!loadResult?.loaded || window._editSessionId !== sessionId) {
             console.log('[onOpen] 会话已切换，丢弃属性回填');
             return;
           }
@@ -1519,6 +1611,15 @@ function addSkuAttrValue(idx) {
 
 /** 添加属性值（点击+添加选项按钮，自动生成名称） */
 function addBlankSkuAttrValue(idx) {
+  const attr = window._skuAttrs[idx];
+  if (attr?.skuType === 'select' && attr.dictionaryId) {
+    attr.values.push('');
+    if (!Array.isArray(attr.valueIds)) attr.valueIds = [];
+    attr.valueIds.push(null);
+    renderSkuAttrs();
+    openColorPickerModal(idx, attr.values.length - 1);
+    return;
+  }
   const existing = window._skuAttrs[idx].values;
   let num = existing.filter(v => v && v.startsWith('选项')).length + 1;
   let newName = `选项${num}`;
@@ -1576,6 +1677,9 @@ function updateNumberSkuValue(attrIdx, valIdx, val) {
 /** 更新单个属性值文本 */
 function updateSkuAttrValueText(attrIdx, valIdx, text) {
   window._skuAttrs[attrIdx].values[valIdx] = text.trim();
+  if (Array.isArray(window._skuAttrs[attrIdx].valueIds)) {
+    window._skuAttrs[attrIdx].valueIds[valIdx] = null;
+  }
   generateSkuTable();
 }
 
@@ -1782,6 +1886,18 @@ function autoMatchColor(sourceColor, dictValues) {
   return { text: src, value_id: null };
 }
 
+/** 将 10096 的多色文本逐项匹配，保持 values/valueIds 同一层级对齐。 */
+function autoMatchColorCollection(sourceColor, dictValues) {
+  const parts = String(sourceColor || '').split(/[,，;；]+/).map(v => v.trim()).filter(Boolean);
+  const matches = parts.map(part => autoMatchColor(part, dictValues));
+  const resolved = matches.filter(match => match.text && match.value_id);
+  if (resolved.length === 0) return { text: String(sourceColor || '').trim(), value_ids: [] };
+  return {
+    text: resolved.map(match => match.text).filter((value, index, all) => all.indexOf(value) === index).join(', '),
+    value_ids: resolved.map(match => match.value_id).filter((value, index, all) => all.indexOf(value) === index),
+  };
+}
+
 /** 打开颜色选择弹窗（异步加载 API 字典值） */
 async function openColorPickerModal(attrIdx, valIdx) {
   const isEdit = valIdx >= 0;
@@ -1855,7 +1971,8 @@ function renderColorCheckboxes(currentVal, colorOptions) {
     const ru = c.value_ru || c.ru || '';
     const vid = c.value_id || '';
     const label = `${zh}（${ru}）`;
-    const isChecked = currentVal === zh || currentVal === label;
+    const selectedValues = String(currentVal || '').split(/[,，;；]+/).map(v => v.trim());
+    const isChecked = selectedValues.includes(zh) || selectedValues.includes(label) || selectedValues.includes(c.value);
     return `
       <label class="color-check-item" data-index="${idx}" data-zh="${zh}" data-ru="${ru}" data-vid="${vid}"
         style="display:flex;align-items:center;gap:6px;padding:5px 4px;font-size:13px;color:#333;cursor:pointer;border-radius:3px;width:100%;box-sizing:border-box;"
@@ -2202,6 +2319,29 @@ function renderSkuAttrs() {
       </div>`;
     }
 
+    // ===== 字典销售属性（俄罗斯尺码等）=====
+    if (skuType === 'select' && attr.dictionaryId) {
+      const requiredMark = attr.required ? '<span class="required">*</span>' : '';
+      const collectionMark = attr.isCollection ? '<span style="font-size:11px;color:#64748b;">可多选</span>' : '';
+      return `
+      <div style="border:1px solid #d4e8f0;border-radius:8px;margin-bottom:12px;background:#fff;overflow:hidden;">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:#f0f9ff;">
+          <span style="font-size:13px;font-weight:500;color:#333;">规格${i + 1}：<span style="color:#0891b2;">${attr.name}</span> ${requiredMark}</span>
+          ${collectionMark}
+        </div>
+        <div style="padding:14px 20px;display:flex;flex-direction:column;gap:8px;">
+          ${(attr.values.length ? attr.values : ['']).map((v, vi) => `
+          <div style="display:flex;align-items:center;gap:8px;">
+            <button type="button" onclick="openColorPickerModal(${i}, ${vi})" style="flex:1;min-width:0;text-align:left;padding:8px 10px;border:1px solid var(--border-color);border-radius:6px;background:#fff;color:${v ? '#334155' : '#94a3b8'};cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${(v || '请选择').replace(/"/g, '&quot;')}">${v || '请选择'}</button>
+            <button type="button" onclick="removeSkuAttrValue(${i}, ${vi})" title="删除" style="border:0;background:none;color:#94a3b8;cursor:pointer;padding:6px;">×</button>
+          </div>`).join('')}
+        </div>
+        <div style="text-align:center;padding:10px 0;border-top:1px solid #f5f5f5;">
+          <button onclick="addBlankSkuAttrValue(${i})" style="background:none;border:none;color:#06b6d4;cursor:pointer;font-size:13px;padding:2px 10px;">+ 选择字典值</button>
+        </div>
+      </div>`;
+    }
+
     // ===== 默认类型 =====
     return `
     <div style="border:1px solid #d4e8f0;border-radius:8px;margin-bottom:12px;background:#fff;overflow:hidden;">
@@ -2458,27 +2598,18 @@ function generateSkuTable() {
       || (comboFallbackKey ? savedSkuFallbackMap[comboFallbackKey] : undefined)
       || (savedSkus.length === combos.length ? savedSkus[i] : undefined);
 
-    // 优先从已保存的SKU数据回填
-    // 注意：已保存的 SKU 图片可能不完整（旧数据/单张颜色图），需补齐产品主图，
-    // 否则编辑时只能看到 1 张图，无法管理其余产品图片。
+    // SKU 图片属于具体变体，不能追加商品公共图集。
     if (savedSku && Array.isArray(savedSku.images) && savedSku.images.length > 0) {
-      const merged = [...savedSku.images];
-      productImagesSource.forEach(url => {
-        if (url && !merged.includes(url)) merged.push(url);
-      });
-      window._skuImages[i] = merged.slice(0, 30);
+      window._skuImages[i] = [...new Set(savedSku.images.filter(Boolean))].slice(0, 30);
       return;
     }
 
-    // 回退：组装图片 = 颜色匹配图（如有，作为主图） + 全部产品主图（去重）
+    // 旧数据完全没有 SKU 图片时，才允许使用颜色图或商品图集回退。
     const colorVal = colorAttrName ? combo[colorAttrName] : '';
     const colorImg = matchColorImageForSku(colorVal);
-    const result = [];
-    if (colorImg) result.push(colorImg);
-    // 追加所有产品主图（去重），确保采集的图片完全显示
-    productImagesSource.forEach(url => {
-      if (url && !result.includes(url)) result.push(url);
-    });
+    const result = colorImg
+      ? [colorImg]
+      : [...new Set(productImagesSource.filter(Boolean))];
     if (result.length > 0) {
       // SKU图片最多30张
       window._skuImages[i] = result.slice(0, 30);
@@ -4209,6 +4340,7 @@ function collectEditFormToProduct(product, opts = {}) {
     if (url) videos.push(url);
   });
   product.videos = videos;
+  product.videoList = videos.filter(url => url !== coverVideoUrl);
 
   // 多条货源链接
   const sourceLinks = [];
@@ -4231,8 +4363,11 @@ function collectEditFormToProduct(product, opts = {}) {
     product.category = window._selectedCategory.label || product.category;
   }
 
-  // 收集类目属性
+  // 收集类目属性；视频属性在专用模块中维护，保存时再按 Ozon ID 组装回去。
+  const existingVideoAttrs = Array.isArray(product.attributes)
+    ? product.attributes.filter(attr => getOzonVideoAttrKind(attr)) : [];
   product.attributes = collectCategoryAttributes();
+  syncProductVideoAttributes(product, existingVideoAttrs);
   console.log('[collectEditFormToProduct] 收集到类目属性:', product.attributes.length, '条',
     product.attributes.map(a => ({ id: a.id, name: a.name, value: a.value, dictId: a.dictionary_value_id, dictIds: a.dictionary_value_ids })));
 
@@ -5521,7 +5656,12 @@ function confirmCategorySelection() {
 
   // 自动拉取该类目下的特征（保留已有SKU属性，避免清空）
   // forceRefresh=true 强制刷新缓存，确保切换到新类目时拉取最新的属性结构
-  loadCategoryAttributes(descCatId, typeId, { preserveSkuAttrs: true, forceRefresh: true });
+  loadCategoryAttributes(descCatId, typeId, { preserveSkuAttrs: true, forceRefresh: true })
+    .then((loadResult) => {
+      if (loadResult?.loaded && window._editingProduct?.attributes) {
+        fillAttributeValues(window._editingProduct.attributes);
+      }
+    });
 }
 
 /** 类目匹配成功后，显示所有编辑面板 */
@@ -5561,11 +5701,22 @@ function migrateAliSkuAttrsToOzon() {
     '款式': ['стиль', 'style', 'модель'],
   };
   const normalize = s => String(s || '').toLowerCase().trim();
+  const nameTokens = name => normalize(name)
+    .replace(/[（）()]/g, ' ')
+    .split(/[^a-zа-яё\u4e00-\u9fff]+/i)
+    .filter(Boolean);
   const skuNameMatch = (aliName, ozonName) => {
     if (!aliName || !ozonName) return false;
-    if (ozonName.includes(aliName) || aliName.includes(ozonName)) return true;
-    const syns = SKU_NAME_SYNONYMS[aliName] || [];
-    return syns.some(s => ozonName.includes(s));
+    const source = normalize(aliName);
+    const target = normalize(ozonName);
+    if (target.includes(source) || source.includes(target)) return true;
+    const sourceTokens = nameTokens(source);
+    const targetTokens = nameTokens(target);
+    if (sourceTokens.some(token => token.length > 2 && targetTokens.includes(token))) return true;
+    const synonymEntry = Object.entries(SKU_NAME_SYNONYMS).find(([key, synonyms]) =>
+      source.includes(normalize(key)) || synonyms.some(s => source.includes(normalize(s)))
+    );
+    return !!synonymEntry && synonymEntry[1].some(s => target.includes(normalize(s)));
   };
 
   aliAttrs.forEach(aliAttr => {
@@ -5582,14 +5733,12 @@ function migrateAliSkuAttrsToOzon() {
     };
     const typesToTry = TYPE_FALLBACKS[type] || [type, 'default'];
 
-    // 按类型优先级查找：先名称匹配，回退到第一个未迁移的
+    // 只按名称/同义词迁移。回退到“第一个同类型属性”会把 Размер
+    // 错填到颜色、件数等完全无关的字典属性中。
     let ozonAttr = null;
     for (const t of typesToTry) {
       const candidates = ozonAttrsByType[t] || [];
       ozonAttr = candidates.find(o => !o._migrated && skuNameMatch(aliAttr.name, normalize(o.name)));
-      if (!ozonAttr) {
-        ozonAttr = candidates.find(o => !o._migrated);
-      }
       if (ozonAttr) break;
     }
     if (!ozonAttr || ozonAttr.name === aliAttr.name) return;
@@ -5688,7 +5837,8 @@ async function aiMatchCategoryForProduct() {
           data.description_category_id,
           data.type_id,
           { preserveSkuAttrs: true }
-        ).then(() => {
+        ).then((loadResult) => {
+          if (!loadResult?.loaded) return;
           // renderCategoryAttributes 内部已调用 renderSkuAttrs + generateSkuTable + renderColorSamples
           fillAttributeValues(product.attributes);
         });
@@ -5772,7 +5922,8 @@ function selectAICandidate(index) {
     candidate.description_category_id,
     candidate.type_id,
     { preserveSkuAttrs: true }
-  ).then(() => {
+  ).then((loadResult) => {
+    if (!loadResult?.loaded) return;
     // renderCategoryAttributes 内部已调用 renderSkuAttrs + generateSkuTable + renderColorSamples
     // 延迟 100ms 确保 batchPreloadAttrOptions 完成，再回填之前保存的属性
     setTimeout(() => {
@@ -5882,7 +6033,8 @@ function selectCategory(el) {
   // 自动拉取该类目下的特征（保留已有SKU属性，避免清空）
   // 拉取完成后，用 fillAttributeValues 把之前保存的属性按 id/name 重新匹配回填到新类目
   // forceRefresh=true 强制刷新缓存，确保切换到新类目时拉取最新的属性结构
-  loadCategoryAttributes(descCatId, typeId, { preserveSkuAttrs: true, forceRefresh: true }).then(() => {
+  loadCategoryAttributes(descCatId, typeId, { preserveSkuAttrs: true, forceRefresh: true }).then((loadResult) => {
+    if (!loadResult?.loaded) return;
     if (window._editingProduct && Array.isArray(window._editingProduct.attributes)
         && window._editingProduct.attributes.length > 0) {
       // 延迟 100ms，确保 batchPreloadAttrOptions 已完成
@@ -5903,6 +6055,15 @@ function selectCategory(el) {
 /** 拉取类目特征并渲染到表单 */
 async function loadCategoryAttributes(descCatId, typeId, options = {}) {
   const { preserveSkuAttrs = false, forceRefresh = false } = options;
+  const loadSeq = ++_categoryAttrLoadSeq;
+  const editSessionId = window._editSessionId;
+  const isCurrentLoad = () => {
+    const selected = window._selectedCategory || {};
+    return loadSeq === _categoryAttrLoadSeq
+      && editSessionId === window._editSessionId
+      && String(selected.description_category_id || '') === String(descCatId || '')
+      && String(selected.type_id || '') === String(typeId || '');
+  };
 
   // 保留已保存的 SKU 属性数据（重新打开编辑弹窗时）
   const savedSkuAttrs = preserveSkuAttrs && Array.isArray(window._skuAttrs)
@@ -5919,32 +6080,57 @@ async function loadCategoryAttributes(descCatId, typeId, options = {}) {
 
   // 缓存命中检查：同一 typeId 的类目属性结构已拉取过时，直接用缓存渲染，不重新请求
   // forceRefresh=true 时跳过缓存（用于用户手动切换类目时强制刷新）
-  const cacheKey = String(typeId);
-  if (!forceRefresh && _categoryAttrCache.has(cacheKey)) {
-    const cachedAttrs = _categoryAttrCache.get(cacheKey);
+  const language = 'ZH_HANS';
+  const cacheKey = `${descCatId}:${typeId}:${language}:${CATEGORY_ATTR_SCHEMA_VERSION}`;
+  const cacheEntry = _categoryAttrCache.get(cacheKey);
+  if (cacheEntry && cacheEntry.expiresAt <= Date.now()) {
+    _categoryAttrCache.delete(cacheKey);
+  }
+  if (!forceRefresh && cacheEntry && cacheEntry.expiresAt > Date.now()) {
+    const cachedAttrs = cloneCategoryAttributeSchema(cacheEntry.data);
     console.log('[类目属性缓存] 命中缓存，跳过API请求:', { typeId, cacheKey, attrCount: cachedAttrs?.length || 0 });
+    if (!isCurrentLoad()) return { loaded: false, stale: true };
     await renderCategoryAttributes(cachedAttrs, { preserveSkuAttrs, savedSkuAttrs });
-    return;
+    return { loaded: true, cached: true };
   }
 
   console.log('[类目属性缓存] 未命中，发起API请求:', { typeId, cacheKey, forceRefresh, cacheSize: _categoryAttrCache.size });
   if (attrList) attrList.innerHTML = '<div style="text-align:center;color:var(--text-tertiary);padding:16px 0;font-size:13px;">正在拉取特征...</div>';
 
   try {
-    const res = await Api.getCategoryAttributes(descCatId, typeId);
+    let requestPromise = _categoryAttrPending.get(cacheKey);
+    if (!requestPromise) {
+      requestPromise = Api.getCategoryAttributes(descCatId, typeId, language)
+        .finally(() => _categoryAttrPending.delete(cacheKey));
+      _categoryAttrPending.set(cacheKey, requestPromise);
+    } else {
+      console.log('[类目属性] 复用进行中的请求:', { cacheKey });
+    }
+    const res = await requestPromise;
+    if (!isCurrentLoad()) {
+      console.log('[类目属性] 忽略过期响应:', { descCatId, typeId, loadSeq });
+      return { loaded: false, stale: true };
+    }
     if (res.code === 200 && res.data) {
       // 存入缓存，下次打开同类目商品时直接复用
-      _categoryAttrCache.set(cacheKey, res.data);
+      _categoryAttrCache.set(cacheKey, {
+        data: cloneCategoryAttributeSchema(res.data),
+        expiresAt: Date.now() + CATEGORY_ATTR_CACHE_TTL,
+        schemaVersion: CATEGORY_ATTR_SCHEMA_VERSION,
+      });
       console.log('[类目属性缓存] 已缓存:', { typeId, cacheKey, attrCount: res.data?.length || 0, cacheSize: _categoryAttrCache.size });
       await renderCategoryAttributes(res.data, { preserveSkuAttrs, savedSkuAttrs });
       Toast.show(res.msg || '特征加载成功', 'success');
+      return { loaded: true, cached: false };
     } else {
       if (attrList) attrList.innerHTML = `<div style="text-align:center;color:var(--text-tertiary);padding:16px 0;font-size:13px;">${res.msg || '加载失败'}</div>`;
     }
   } catch (e) {
     console.error('拉取类目特征失败:', e);
     if (attrList) attrList.innerHTML = '<div style="text-align:center;color:var(--text-tertiary);padding:16px 0;font-size:13px;">拉取失败，请重试</div>';
+    return { loaded: false, error: e };
   }
+  return { loaded: false };
 }
 
 /** 渲染类目特征表单（返回 Promise，等待字典值预加载完成） */
@@ -6036,11 +6222,12 @@ async function renderCategoryAttributes(attributes, options = {}) {
   const ANNOTATION_KEYWORDS = ['简介', 'Аннотация', 'Annotation'];
   const isAnnotationAttr = attr =>
     attr.name && ANNOTATION_KEYWORDS.some(kw => attr.name.toLowerCase().includes(kw.toLowerCase()));
+  const isVideoAttr = attr => Boolean(getOzonVideoAttrKind(attr));
 
   // 分离：SKU属性 vs 动态属性（需拉取显示）
   // 通用属性直接过滤掉，不渲染、不绑定
   const skuAttrs = attributes.filter(isSkuAttr);
-  const dynamicAttrs = attributes.filter(attr => !isSkuAttr(attr) && !isCommonAttr(attr) && !isRichContentAttr(attr) && !isModelNameAttr(attr) && !isAnnotationAttr(attr));
+  const dynamicAttrs = attributes.filter(attr => !isSkuAttr(attr) && !isCommonAttr(attr) && !isRichContentAttr(attr) && !isModelNameAttr(attr) && !isAnnotationAttr(attr) && !isVideoAttr(attr));
   // JSON富内容单独渲染到基本信息区
   const richContentAttr = attributes.find(isRichContentAttr);
   // 型号名称单独渲染到基本信息区（合并编号下方）
@@ -6192,11 +6379,11 @@ async function renderCategoryAttributes(attributes, options = {}) {
             try {
               const dictValues = await loadColorDictionary(colorAttr.id, colorAttr.dictionary_id, descCatId, typeId);
               if (dictValues.length > 0) {
-                const matched = colorSkuAttr.values.map(v => autoMatchColor(v, dictValues));
+                const matched = colorSkuAttr.values.map(v => autoMatchColorCollection(v, dictValues));
                 // 同步更新 SKU combo 的颜色值（旧值 → 匹配后的字典值文本）
                 const oldValues = [...colorSkuAttr.values];
                 colorSkuAttr.values = matched.map(m => m.text);
-                colorSkuAttr.valueIds = matched.map(m => m.value_id);
+                colorSkuAttr.valueIds = matched.map(m => m.value_ids.length === 1 ? m.value_ids[0] : m.value_ids);
                 // 同步更新 product.skus 中的 combo 颜色值
                 if (window._editingProduct?.skus && Array.isArray(window._editingProduct.skus)) {
                   window._editingProduct.skus.forEach(sku => {
@@ -6310,17 +6497,18 @@ async function renderCategoryAttributes(attributes, options = {}) {
       window._skuAttrs.push(newAttr);
       console.log(`[renderCategoryAttributes] 自动识别 SKU ${category === 'sales' ? '销售属性' : '信息属性'}: ${attr.name} (attrId=${attr.id}, dictionary_id=${attr.dictionary_id || 0})`);
     } else {
-      // 补全元数据（保留已存在的 values 与 skuType 以兼容旧数据）
+      // 类目 schema 是控件类型的唯一依据。旧采集数据常把字典属性降级成
+      // 普通 text，若只“补空字段”，俄罗斯尺码等属性会一直无法编辑。
       if (!existing.attrId) existing.attrId = attr.id;
-      if (!existing.attrCategory) existing.attrCategory = category;
-      if (!existing.skuType) existing.skuType = category === 'sales' ? 'select' : 'info';
+      existing.attrCategory = category;
+      existing.skuType = category === 'sales' ? 'select' : 'info';
       if (!existing.description) existing.description = attr.description || '';
       if (!existing.ozonType) existing.ozonType = attr.ozon_type || '';
       if (existing.required === undefined) existing.required = !!attr.required;
       if (category === 'sales') {
-        if (!existing.dictionaryId) existing.dictionaryId = attr.dictionary_id;
+        existing.dictionaryId = attr.dictionary_id;
         if (!existing.valueIds) existing.valueIds = [];
-        if (existing.isCollection === undefined) existing.isCollection = !!attr.is_collection;
+        existing.isCollection = !!attr.is_collection;
       }
       safeUpdateValues(existing, saved);
     }
@@ -8145,6 +8333,9 @@ function fillAttributeValues(savedAttrs) {
     if ((attr.value === undefined || attr.value === null || attr.value === '') && nestedTexts.length) {
       attr.value = nestedTexts.join('; ');
     }
+    if ((attr.value === undefined || attr.value === null || attr.value === '') && attr.sourceValue) {
+      attr.value = attr.sourceValue;
+    }
     return attr;
   });
 
@@ -8521,11 +8712,11 @@ function fillAttributeValues(savedAttrs) {
         try {
           const dictValues = await loadColorDictionary(colorSkuAttr.attrId, colorSkuAttr.dictionaryId, descCatId, typeId);
           if (dictValues.length > 0) {
-            const matched = colorSkuAttr.values.map(v => autoMatchColor(v, dictValues));
+            const matched = colorSkuAttr.values.map(v => autoMatchColorCollection(v, dictValues));
             // 同步更新 SKU combo 的颜色值
             const oldValues = [...colorSkuAttr.values];
             colorSkuAttr.values = matched.map(m => m.text);
-            colorSkuAttr.valueIds = matched.map(m => m.value_id);
+            colorSkuAttr.valueIds = matched.map(m => m.value_ids.length === 1 ? m.value_ids[0] : m.value_ids);
             // 同步更新 product.skus 中的 combo 颜色值
             if (window._editingProduct?.skus && Array.isArray(window._editingProduct.skus)) {
               window._editingProduct.skus.forEach(sku => {

@@ -152,6 +152,27 @@ def _cache_set(key, data, ttl=None):
         pass  # 文件写入失败不影响功能
 
 
+def _cache_get_with_language_alias(cache_key, language, ttl=None):
+    """Reuse legacy DEFAULT and current RU cache files interchangeably."""
+    cached = _cache_get(cache_key, ttl=ttl)
+    if cached is not None:
+        return cached
+    aliases = {'RU': 'DEFAULT', 'DEFAULT': 'RU'}
+    alias = aliases.get(str(language or '').upper())
+    if not alias:
+        return None
+    token = f'_{language}'
+    if cache_key.endswith(token):
+        alias_key = cache_key[:-len(token)] + f'_{alias}'
+    else:
+        alias_key = cache_key.replace(f'_{language}_', f'_{alias}_', 1)
+    cached = _cache_get(alias_key, ttl=ttl)
+    if cached is not None:
+        _cache_set(cache_key, cached, ttl=ttl)
+        print(f'[Ozon缓存] 语言别名命中: {alias_key} -> {cache_key}')
+    return cached
+
+
 def get_category_tree(language='ZH_HANS', client_id=None, api_key=None, use_cache=True):
     """获取 Ozon 类目树（带内存+文件双级缓存，TTL 24小时）
 
@@ -456,7 +477,7 @@ def get_category_attributes(description_category_id, type_id, language='ZH_HANS'
     """
     cache_key = f'attrs_{description_category_id}_{type_id}_{language}'
     ttl = CACHE_TTL['attributes']
-    cached = _cache_get(cache_key, ttl=ttl)
+    cached = _cache_get_with_language_alias(cache_key, language, ttl=ttl)
     if cached:
         return cached
 
@@ -484,7 +505,7 @@ def get_attribute_values(description_category_id, type_id, attribute_id,
 
     # 非首页请求不使用缓存（分页场景）
     if last_value_id == 0:
-        cached = _cache_get(cache_key, ttl=ttl)
+        cached = _cache_get_with_language_alias(cache_key, language, ttl=ttl)
         if cached:
             return cached
 
@@ -512,7 +533,7 @@ def search_attribute_values(description_category_id, type_id, attribute_id, quer
     缓存 1 小时。
     """
     cache_key = f'attr_vals_search_{description_category_id}_{type_id}_{attribute_id}_{language}_{query}'
-    cached = _cache_get(cache_key, ttl=3600)
+    cached = _cache_get_with_language_alias(cache_key, language, ttl=3600)
     if cached:
         return cached
 
@@ -537,7 +558,7 @@ def get_attribute_values_full(description_category_id, type_id, attribute_id,
     """
     cache_key = f'attr_vals_full_{description_category_id}_{type_id}_{attribute_id}_{language}'
     ttl = CACHE_TTL['attribute_values']
-    cached = _cache_get(cache_key, ttl=ttl)
+    cached = _cache_get_with_language_alias(cache_key, language, ttl=ttl)
     if cached:
         return cached
 

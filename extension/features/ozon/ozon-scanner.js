@@ -118,6 +118,16 @@
     return m ? parseFloat(m[0]) : 0;
   }
 
+  /** 移除 Ozon 描述容器自带的栏目标题，仅保留商品正文。 */
+  function cleanDescriptionText(value) {
+    if (value == null) return '';
+    return String(value)
+      .replace(/\r\n?/g, '\n')
+      .trim()
+      .replace(/^Описание(?:\s*[:：\-–—]\s*|\s+)(?=\S)/i, '')
+      .trim();
+  }
+
   /**
    * 货币符号 → 代码映射（对齐毛子 ERP T 对象）
    * T={CNY:"¥",RUB:"₽",USD:"$",EUR:"€",BYN:"Br",KZT:"₸"}
@@ -831,10 +841,14 @@
      * @returns {object|null} Ozon Rich Content JSON 对象，未提取到返回 null
      */
     extractRichContent() {
-      // 搜索容器优先级：
-      // 1. [data-widget="webRichContent"] —— Ozon Rich Content 官方容器
-      // 2. #section-description —— 描述区域（可能包含 Rich Content）
-      // 3. [data-widget="webDescription"] —— 描述 widget
+      this._lastRichContentSource = '';
+      const accept = (value, source) => {
+        if (!value) return null;
+        this._lastRichContentSource = source;
+        return value;
+      };
+      // Only official Rich Content containers are candidates. Ozon also uses
+      // #section-description for ordinary descriptions and specifications.
       const containers = [];
       [
         '[data-widget="webRichContent"]',
@@ -859,7 +873,7 @@
             const txt = (scripts[i].textContent || '').trim();
             if (!txt) continue;
             const rc = this._parseRichContentJson(txt, true);
-            if (rc) return rc;
+            if (rc) return accept(rc, 'official_container_json');
           }
         } catch (_) {}
         // 兜底2: 容器的 data-state 属性
@@ -867,7 +881,7 @@
           const state = el.getAttribute('data-state');
           if (state) {
             const rc = this._parseRichContentJson(state, true);
-            if (rc) return rc;
+            if (rc) return accept(rc, 'official_container_state');
           }
         } catch (_) {}
         // 兜底3: 容器内所有 <script> 标签（不限 type）
@@ -877,7 +891,7 @@
             const txt = (scripts[i].textContent || '').trim();
             if (!txt || txt.length < 20) continue;
             const rc = this._parseRichContentJson(txt, true);
-            if (rc) return rc;
+            if (rc) return accept(rc, 'official_container_script');
           }
         } catch (_) {}
       }
@@ -889,7 +903,7 @@
           const txt = scripts[i].textContent || '';
           if (!this._containsRichContentKey(txt)) continue;
           const rc = this._parseRichContentJson(txt, false);
-          if (rc) return rc;
+          if (rc) return accept(rc, 'page_rich_content_state');
         }
       } catch (_) {}
 
@@ -902,7 +916,7 @@
           // 匹配 richContent = {...} 或 "richContent":{...} 模式
           if (!this._containsRichContentKey(txt)) continue;
           const rc = this._parseRichContentJson(txt, false);
-          if (rc) return rc;
+          if (rc) return accept(rc, 'page_rich_content_script');
         }
       } catch (_) {}
 
@@ -921,28 +935,31 @@
           if (!raw || raw === '[object Object]') continue;
           let parsed = null;
           try { parsed = JSON.parse(raw); } catch (_) { continue; }
-          if (this._isRichContent(parsed, true)) return this._normalizeRichContent(parsed);
+          if (this._isRichContent(parsed, true)) return accept(this._normalizeRichContent(parsed), 'widget_data');
           if (parsed && parsed.widgetName) widgets.push(parsed);
           else {
             const nested = this._findRichContentDeep(parsed, 0, true);
-            if (nested) return nested;
+            if (nested) return accept(nested, 'widget_data_nested');
           }
         }
-        if (widgets.length) return this._normalizeRichContent({ content: widgets, version: 0.3 });
+        if (widgets.length) return accept(this._normalizeRichContent({ content: widgets, version: 0.3 }), 'widget_data_list');
       } catch (_) {}
 
       // Ozon increasingly renders Rich Content from internal state without
       // exposing the original JSON in a script tag. Rebuild a valid v0.3
       // document from the rendered DOM so visible text/images are not lost.
-      return this._buildRichContentFromDom(containers);
+      const rebuilt = this._buildRichContentFromDom(containers);
+      return rebuilt ? accept(rebuilt, 'official_rich_dom') : null;
     }
 
     _buildRichContentFromDom(knownContainers) {
       const containers = Array.isArray(knownContainers) ? knownContainers.slice() : [];
+      const hasOfficialContainer = containers.some(function (el) {
+        return /rich.?content/i.test(String(el && el.getAttribute && el.getAttribute('data-widget') || ''));
+      });
       [
         '[data-widget="webRichContent"]',
         '[data-widget*="RichContent"]',
-        '#section-description',
       ].forEach(selector => {
         try {
           document.querySelectorAll(selector).forEach(el => {
@@ -951,6 +968,9 @@
         } catch (_) {}
       });
 
+      // #section-description is also used by ordinary descriptions and specs.
+      // Only use it when an official Rich Content container was already found.
+      if (!hasOfficialContainer && containers.length === 0) return null;
       const root = containers.filter(function (el) {
         return el && (el.querySelector('img') || (el.innerText || '').trim());
       }).sort(function (a, b) {
@@ -966,7 +986,7 @@
       // contains evidence that Ozon actually rendered Rich Content.
       const rootWidget = String(root.getAttribute && root.getAttribute('data-widget') || '').toLowerCase();
       const hasRichDomEvidence = /rich.?content/.test(rootWidget) ||
-        !!root.querySelector('img, [widgetdata], [data-widget-data], [data-rich-content], [data-rich-content-json], [class^="RA-"], [class*=" RA-"]');
+        !!root.querySelector('[widgetdata], [data-widget-data], [data-rich-content], [data-rich-content-json]');
       if (!hasRichDomEvidence) return null;
 
       const content = [];
@@ -1416,7 +1436,7 @@
       for (let i = 0; i < SELECTORS.DESCRIPTION.length; i++) {
         const el = document.querySelector(SELECTORS.DESCRIPTION[i]);
         if (el) {
-          const text = (el.innerText || el.textContent || '').trim();
+          const text = cleanDescriptionText(el.innerText || el.textContent || '');
           if (text && text.length > 10) return text;
         }
       }
@@ -1427,7 +1447,7 @@
           const txt = scripts[i].textContent || '';
           if (txt.indexOf('"description"') >= 0) {
             const m = txt.match(/"description"\s*:\s*"([^"]{20,})"/);
-            if (m) return m[1].replace(/\\n/g, '\n').replace(/\\"/g, '"');
+            if (m) return cleanDescriptionText(m[1].replace(/\\n/g, '\n').replace(/\\"/g, '"'));
           }
         }
       } catch (_) {}
@@ -1523,6 +1543,33 @@
      * 兜底方案：仅当 API 调用失败时使用
      * 对齐毛子 ERP row 字段：sku/title/price/originalPrice/coverImage/searchableText/picture
      */
+    _extractVariantImages() {
+      const urls = [];
+      const add = function (value) {
+        if (!value) return;
+        if (Array.isArray(value)) {
+          value.forEach(add);
+          return;
+        }
+        if (typeof value === 'object') {
+          add(value.url || value.src || value.imageUrl || value.image || value.picture || value.coverImage);
+          return;
+        }
+        const url = stripImageSize(String(value).trim());
+        if (/^https?:\/\//i.test(url) && urls.indexOf(url) < 0) urls.push(url);
+      };
+      for (let i = 0; i < arguments.length; i++) {
+        const source = arguments[i] || {};
+        add(source.images);
+        add(source.pictures);
+        add(source.coverImage || source.cover_image);
+        add(source.picture);
+        add(source.image || source.imageUrl || source.image_url);
+        add(source.preview || source.thumbnail);
+      }
+      return urls;
+    }
+
     extractSkuList() {
       const wrap = document.querySelector(SELECTORS.SKU_LIST);
       if (!wrap) return [];
@@ -1561,16 +1608,21 @@
         const price = priceMatch ? parsePrice(priceMatch[1]) : 0;
         const titleText = cardTitle || (priceMatch ? text.replace(priceMatch[0], '').trim() : text);
         const variantText = variantLabel || titleText;
+        const imageEl = el.querySelector('img');
+        const variantImage = imageEl ? stripImageSize(
+          imageEl.currentSrc || imageEl.getAttribute('src') || imageEl.getAttribute('data-src') || ''
+        ) : '';
 
         list.push({
           sku: skuId,
           title: titleText,
           price: price,
           originalPrice: 0,
-          coverImage: '',
+          coverImage: variantImage,
           searchableText: variantText,
           variantLabel: variantLabel,
-          picture: '',
+          picture: variantImage,
+          images: variantImage ? [variantImage] : [],
           stock: 0,
           attributes: this._parseAttributes(variantText),
           _source: 'dom',
@@ -1627,18 +1679,24 @@
             if (bySku[skuId]) {
               Object.assign(bySku[skuId].attributes, aspectAttributes);
               if (!bySku[skuId].searchableText && d.searchableText) bySku[skuId].searchableText = d.searchableText;
+              const moreImages = this._extractVariantImages(v, d);
+              bySku[skuId].images = Array.from(new Set((bySku[skuId].images || []).concat(moreImages)));
+              if (!bySku[skuId].coverImage && moreImages.length) bySku[skuId].coverImage = moreImages[0];
+              if (!bySku[skuId].picture && moreImages.length) bySku[skuId].picture = moreImages[0];
               continue;
             }
+            const variantImages = this._extractVariantImages(v, d);
             const item = {
               sku: skuId,
               title: d.title || '',
               price: parsePrice(d.price),
               originalPrice: parsePrice(d.originalPrice),
               cardPrice: parsePrice(d.cardPrice || d.price),
-              coverImage: stripImageSize(d.coverImage || ''),
+              coverImage: variantImages[0] || '',
               searchableText: d.searchableText || '',
               variantLabel: d.searchableText || '',
-              picture: stripImageSize(d.picture || ''),
+              picture: variantImages[0] || '',
+              images: variantImages,
               stock: 0,
               attributes: aspectAttributes,
               _source: 'aspectsNew',
@@ -1698,18 +1756,24 @@
               if (bySku[skuId]) {
                 Object.assign(bySku[skuId].attributes, aspectAttributes);
                 if (!bySku[skuId].searchableText && d.searchableText) bySku[skuId].searchableText = d.searchableText;
+                const moreImages = this._extractVariantImages(v, d);
+                bySku[skuId].images = Array.from(new Set((bySku[skuId].images || []).concat(moreImages)));
+                if (!bySku[skuId].coverImage && moreImages.length) bySku[skuId].coverImage = moreImages[0];
+                if (!bySku[skuId].picture && moreImages.length) bySku[skuId].picture = moreImages[0];
                 continue;
               }
+              const variantImages = this._extractVariantImages(v, d);
               const item = {
                 sku: skuId,
                 title: d.title || '',
                 price: parsePrice(d.price),
                 originalPrice: parsePrice(d.originalPrice),
                 cardPrice: parsePrice(d.cardPrice || d.price),
-                coverImage: stripImageSize(d.coverImage || ''),
+                coverImage: variantImages[0] || '',
                 searchableText: d.searchableText || '',
                 variantLabel: d.searchableText || '',
-                picture: stripImageSize(d.picture || ''),
+                picture: variantImages[0] || '',
+                images: variantImages,
                 stock: 0,
                 attributes: aspectAttributes,
                 _source: 'productDetail',
@@ -1772,6 +1836,31 @@
       }
     }
 
+    async fetchOfficialRichContent(sku) {
+      if (!sku) return null;
+      const url = location.origin +
+        '/api/entrypoint-api.bx/page/json/v2?url=/product/' + sku +
+        '/?layout_container=pdpPage2column&layout_page_index=2';
+      const ctrl = new AbortController();
+      const timer = setTimeout(function () { ctrl.abort(); }, 8000);
+      try {
+        const resp = await fetch(url, { credentials: 'include', signal: ctrl.signal });
+        clearTimeout(timer);
+        if (!resp.ok) return null;
+        const json = await resp.json();
+        const widget = parseWidget(json, 'webDescription-');
+        const raw = widget && widget.richAnnotationJson;
+        if (!raw) return null;
+        if (typeof raw === 'string') return this._parseRichContentJson(raw, true);
+        if (this._isRichContent(raw, true)) return this._normalizeRichContent(raw);
+        return this._findRichContentDeep(raw, 0, true);
+      } catch (error) {
+        clearTimeout(timer);
+        console.warn('[GeekOzon] official Rich Content request failed:', error);
+        return null;
+      }
+    }
+
     /**
      * 获取单个变体 SKU 的当前售价（来自 webPrice widget）
      * 对齐毛子 ERP we() 函数中调用 oe(sku, false) 的行为
@@ -1792,10 +1881,12 @@
         if (!resp.ok) return null;
         const json = await resp.json();
         const priceWidget = parseWidget(json, 'webPrice-');
-        if (!priceWidget) return null;
-        const regularPrice = parsePrice(priceWidget.price);
-        const cardPrice = parsePrice(priceWidget.cardPrice);
-        const originalPrice = parsePrice(priceWidget.originalPrice);
+        const galleryWidget = parseWidget(json, 'webGallery-');
+        if (!priceWidget && !galleryWidget) return null;
+        const regularPrice = parsePrice(priceWidget && priceWidget.price);
+        const cardPrice = parsePrice(priceWidget && priceWidget.cardPrice);
+        const originalPrice = parsePrice(priceWidget && priceWidget.originalPrice);
+        const images = this._extractVariantImages(galleryWidget || {});
         // 对齐毛子 ERP se() 函数：变体的 price 与 cardPrice 都设为页面显示的当前售价
         // 毛子 se() 中 cardPrice:W(data.price), price:W(data.price)（同值）
         // 当存在 cardPrice（Ozon 卡折扣价）且小于 regularPrice 时，
@@ -1808,10 +1899,75 @@
           price: displayedPrice,
           cardPrice: displayedPrice,
           originalPrice: originalPrice,
+          images: images,
+          coverImage: images[0] || stripImageSize(galleryWidget && galleryWidget.coverImage || ''),
         };
       } catch (e) {
         return null;
       }
+    }
+
+    /** Build a product snapshot for an SKU shown on an Ozon list page. */
+    async scanProductBySku(sku) {
+      const sourceSku = String(sku || '').trim();
+      if (!sourceSku) throw new Error('缺少 Ozon SKU');
+      const results = await Promise.all([
+        this.fetchProductDetail(sourceSku),
+        this.fetchVariants(sourceSku),
+        this.fetchOfficialRichContent(sourceSku).catch(function () { return null; }),
+      ]);
+      const detail = results[0] || { product: null, variants: [] };
+      const modalVariants = results[1] || [];
+      const richContent = results[2];
+      const product = Object.assign(this.createBlankProduct(), detail.product || {}, {
+        platform: 'ozon',
+        sku: sourceSku,
+        productId: sourceSku,
+        sourceUrl: location.origin + '/product/' + sourceSku + '/',
+      });
+      let variants = this.mergeVariants(detail.variants || [], modalVariants);
+      variants = this.filterDiscountedVariants(variants, sourceSku);
+      if (!variants.length) {
+        variants = [{
+          sku: sourceSku,
+          sourceSku: sourceSku,
+          title: product.title,
+          price: product.price,
+          cardPrice: product.cardPrice,
+          images: product.images || [],
+          coverImage: (product.images || [])[0] || '',
+          attributes: {},
+        }];
+      }
+      const self = this;
+      for (let start = 0; start < variants.length; start += 6) {
+        const batch = variants.slice(start, start + 6);
+        const details = await Promise.all(batch.map(function (variant) {
+          return self.fetchVariantPrice(variant.sourceSku || variant.sku);
+        }));
+        details.forEach(function (info, index) {
+          if (!info) return;
+          const variant = batch[index];
+          if (info.price > 0) variant.price = info.price;
+          if (info.cardPrice > 0) variant.cardPrice = info.cardPrice;
+          if (info.originalPrice > 0) variant.originalPrice = info.originalPrice;
+          if (info.images && info.images.length) {
+            variant.images = info.images.slice();
+            variant.coverImage = info.coverImage || info.images[0];
+            variant.picture = variant.coverImage;
+          }
+          variant.attributes = Object.assign({}, variant.attributes || {}, info.attributes || {});
+        });
+      }
+      product.skuList = variants;
+      product.variants = variants;
+      product.skus = variants;
+      if (richContent) {
+        product.richContent = richContent;
+        product.contentType = 'rich_content';
+        product.description = '';
+      }
+      return this.finalizeProductSnapshot(product, ['product-detail-api', 'variants-api', 'per-sku-detail-api']);
     }
 
     /**
@@ -1851,15 +2007,17 @@
               const itemSku = String(it.sku || variantId);
               if (!itemSku || seenSku[itemSku]) continue;
               seenSku[itemSku] = 1;
+              const variantImages = this._extractVariantImages(it);
               out.push({
                 sku: itemSku,
                 title: it.title || it.name || '',
                 price: parsePrice(it.price),
                 originalPrice: parsePrice(it.old_price || it.originalPrice),
                 cardPrice: parsePrice(it.card_price || it.cardPrice || it.price),
-                coverImage: stripImageSize(it.cover_image || it.coverImage || ''),
+                coverImage: variantImages[0] || '',
                 searchableText: '',
-                picture: '',
+                picture: variantImages[0] || '',
+                images: variantImages,
                 stock: Number(it.stock || it.qty || 0) || 0,
                 attributes: {},
                 _source: 'what_to_sell',
@@ -1890,15 +2048,17 @@
                 const itemSku = String(it.sku || it.variant_id || it.id || '');
                 if (!itemSku || seenSku[itemSku]) continue;
                 seenSku[itemSku] = 1;
+                const variantImages = this._extractVariantImages(it);
                 out.push({
                   sku: itemSku,
                   title: it.title || it.name || '',
                   price: parsePrice(it.price),
                   originalPrice: parsePrice(it.old_price || it.originalPrice),
                   cardPrice: parsePrice(it.card_price || it.cardPrice || it.price),
-                  coverImage: stripImageSize(it.cover_image || it.coverImage || ''),
+                  coverImage: variantImages[0] || '',
                   searchableText: '',
-                  picture: '',
+                  picture: variantImages[0] || '',
+                  images: variantImages,
                   stock: 0,
                   attributes: {},
                   _source: 'search-variant-model',
@@ -1976,21 +2136,53 @@
     mergeVariants(domVariants, apiVariants) {
       const map = Object.create(null);
       const out = [];
+      const normalizeIdentity = function (variant) {
+        if (!variant || typeof variant !== 'object') return variant;
+        const sourceSku = String(variant.sourceSku || variant.source_sku || variant.sku || variant.id || '').trim();
+        if (sourceSku) {
+          variant.sourceSku = sourceSku;
+          if (!variant.sku) variant.sku = sourceSku;
+        }
+        return variant;
+      };
+      const mergeVariant = (target, source) => {
+        if (!target || !source) return target;
+        const sourceImages = this._extractVariantImages(source);
+        const targetImages = this._extractVariantImages(target);
+        const images = targetImages.concat(sourceImages.filter(function (url) {
+          return targetImages.indexOf(url) < 0;
+        }));
+        if (images.length) {
+          target.images = images;
+          if (!target.coverImage) target.coverImage = images[0];
+          if (!target.picture) target.picture = images[0];
+        }
+        if (!target.title && source.title) target.title = source.title;
+        if (!target.searchableText && source.searchableText) target.searchableText = source.searchableText;
+        if (!target.variantLabel && source.variantLabel) target.variantLabel = source.variantLabel;
+        if ((!target.price || target.price <= 0) && source.price > 0) target.price = source.price;
+        target.attributes = Object.assign({}, source.attributes || {}, target.attributes || {});
+        return target;
+      };
       // 先放 API 数据（更准确）
       for (let i = 0; i < apiVariants.length; i++) {
-        const v = apiVariants[i];
+        const v = normalizeIdentity(apiVariants[i]);
         if (v.sku && !map[v.sku]) {
-          map[v.sku] = 1;
+          map[v.sku] = v;
           out.push(v);
+        } else if (v.sku && map[v.sku]) {
+          mergeVariant(map[v.sku], v);
         }
       }
       // 再补充 DOM 数据中 sku 不重复的
       for (let i = 0; i < domVariants.length; i++) {
-        const v = domVariants[i];
+        const v = normalizeIdentity(domVariants[i]);
         const key = v.sku || v.title;
         if (key && !map[key]) {
-          map[key] = 1;
+          map[key] = v;
           out.push(v);
+        } else if (key && map[key]) {
+          mergeVariant(map[key], v);
         }
       }
       return out;
@@ -2001,6 +2193,17 @@
       const list = Array.isArray(variants) ? variants : [];
       const currentMatch = String(currentSku || '').match(/(\d+)(?:\D*)$/);
       const currentId = currentMatch ? currentMatch[1] : String(currentSku || '');
+      const variantId = function (variant) {
+        return String((variant && (variant.sourceSku || variant.sku || variant.id)) || '').match(/(\d+)(?:\D*)$/)?.[1] || '';
+      };
+      // webAspects-like widgets also appear in unrelated recommendation and
+      // attribute panels. A real variant family must contain the current SKU.
+      if (currentId && list.length && !list.some(function (variant) {
+        return variantId(variant) === currentId;
+      })) {
+        console.warn('[GeekOzon] ignored unrelated variant set: current SKU is absent', currentId);
+        return [];
+      }
       const variantText = function (variant) {
         const attrs = variant && variant.attributes && typeof variant.attributes === 'object'
           ? Object.values(variant.attributes).join(' ')
@@ -2012,12 +2215,12 @@
         return /уцен|discounted|damaged|折价|瑕疵/.test(variantText(variant));
       };
       const currentIsDiscounted = list.some(function (variant) {
-        return String((variant && (variant.sku || variant.id)) || '') === currentId && isDiscounted(variant);
+        return variantId(variant) === currentId && isDiscounted(variant);
       });
       return list.filter(function (variant) {
-        const variantId = String((variant && (variant.sku || variant.id)) || '');
-        if (currentIsDiscounted) return variantId === currentId;
-        if (currentId && variantId === currentId) return true;
+        const id = variantId(variant);
+        if (currentIsDiscounted) return id === currentId;
+        if (currentId && id === currentId) return true;
         return !isDiscounted(variant);
       });
     }
@@ -2087,6 +2290,7 @@
     /** 生成唯一最终快照和完整度诊断，供采集与一键上架共同使用。 */
     finalizeProductSnapshot(product, sources) {
       if (!product) return product;
+      product.scannerVersion = '3.0.2-rich-api';
       product.images = Array.from(new Set((product.images || []).map(stripImageSize).filter(Boolean)));
       product.videos = Array.from(new Set((product.videos || []).filter(Boolean)));
       const attrs = [];
@@ -2210,11 +2414,17 @@
       // === 新增：提取商品描述（纯文本） ===
       product.description = richContent ? '' : this.extractDescription();
       if (!richContent) product.contentType = product.description ? 'plain_description' : 'none';
+      product.contentEvidence = {
+        mode: product.contentType,
+        source: richContent ? (this._lastRichContentSource || 'unknown_rich') : (product.description ? 'plain_description_dom' : 'none'),
+        richValidated: !!richContent,
+        descriptionValidated: !!product.description,
+      };
 
       // === 新增：提取详情图片（Rich Content 富文本中的图片） ===
       // Ozon 描述区有两种形态：纯文本描述（无图片）和 Rich Content 富文本（含 img.RA-k2）
       // extractDetailImages 会自动判断并提取 Rich Content 中的图片，与主图去重
-      product.detailImages = this.extractDetailImages();
+      product.detailImages = richContent ? this.extractDetailImages() : [];
 
       // === 新增：提取主题标签（hashtags）===
       // 对应 Ozon 属性 "#主题标签"（id=23171，String 类型）
@@ -2297,7 +2507,7 @@
       const productId = product.productId || this.getProductIdFromUrl();
       console.log('[GeekOzon] scanAsync: sku=' + sku + ', productId=' + productId);
       const self = this;
-      const [detailRes, apiVariants] = await Promise.all([
+      const [detailRes, apiVariants, officialRichContent] = await Promise.all([
         self.fetchProductDetail(sku).catch(function (e) {
           console.warn('[GeekOzon] fetchProductDetail 失败:', e);
           return null;
@@ -2305,6 +2515,10 @@
         self.fetchVariants(productId).catch(function (e) {
           console.warn('[GeekOzon] fetchVariants 失败:', e);
           return [];
+        }),
+        self.fetchOfficialRichContent(sku).catch(function (e) {
+          console.warn('[GeekOzon] fetchOfficialRichContent failed:', e);
+          return null;
         }),
       ]);
 
@@ -2373,7 +2587,9 @@
       // 分批获取最多 60 个变体，兼顾大规格商品覆盖率和 Ozon 限流。
       if (allVariants.length > 0) {
         try {
-          const variantsToPrice = allVariants.slice(0, 60);
+          // Each SKU owns a separate webGallery. A variant thumbnail is not a
+          // substitute for that gallery, so inspect every verified SKU.
+          const variantsToPrice = allVariants.slice();
           const priceResults = [];
           for (let start = 0; start < variantsToPrice.length; start += 6) {
             const batch = variantsToPrice.slice(start, start + 6);
@@ -2408,16 +2624,22 @@
               if (pi.cardPrice != null && pi.cardPrice > 0) {
                 v.cardPrice = pi.cardPrice;
               }
-              v._source = 'webPrice';
+              if (Array.isArray(pi.images) && pi.images.length) {
+                v.images = pi.images.slice();
+                v.coverImage = pi.coverImage || pi.images[0];
+                v.picture = v.coverImage;
+                v._imageSource = 'variant-webGallery';
+              }
+              v._source = 'variant-product-detail';
             }
           }
-          if (allVariants.length > variantsToPrice.length) {
-            product.variantPriceCoverage = {
-              total: allVariants.length,
-              checked: variantsToPrice.length,
-              truncated: true,
-            };
-          }
+          product.variantDetailCoverage = {
+            total: allVariants.length,
+            checked: variantsToPrice.length,
+            withImages: allVariants.filter(function (variant) {
+              return Array.isArray(variant.images) && variant.images.length > 0;
+            }).length,
+          };
         } catch (e) {
           // 价格获取失败不影响主流程，使用 aspectsNew 兜底
           console.warn('[GeekOzon] 变体价格获取失败，使用 aspectsNew 兜底', e);
@@ -2445,7 +2667,8 @@
 
       // Rich Content often finishes rendering after the price/gallery widgets.
       // Re-read it at the end of the async scan and replace the early snapshot.
-      const latestRichContent = this.extractRichContent();
+      const latestRichContent = officialRichContent || this.extractRichContent();
+      if (officialRichContent) this._lastRichContentSource = 'official_description_api';
       if (latestRichContent) {
         product.richContent = latestRichContent;
         product.contentType = 'rich_content';
@@ -2464,8 +2687,29 @@
             value: richJson,
           });
         }
+        product.contentEvidence = {
+          mode: 'rich_content',
+          source: this._lastRichContentSource || 'unknown_rich',
+          richValidated: true,
+          descriptionValidated: false,
+        };
+      } else if (product.contentType !== 'rich_content') {
+        const latestDescription = this.extractDescription();
+        product.richContent = null;
+        product.description = latestDescription;
+        product.contentType = latestDescription ? 'plain_description' : 'none';
+        product.attributes = (product.attributes || []).filter(function (a) {
+          return String(a && (a.id || a.attrId || a.attribute_id) || '') !== '11254' &&
+                 !(a && a.name && /JSON富内容|Rich-контент|Rich content/i.test(a.name));
+        });
+        product.contentEvidence = {
+          mode: product.contentType,
+          source: latestDescription ? 'plain_description_dom' : 'none',
+          richValidated: false,
+          descriptionValidated: !!latestDescription,
+        };
       }
-      product.detailImages = this.extractDetailImages();
+      product.detailImages = product.contentType === 'rich_content' ? this.extractDetailImages() : [];
 
       return this.finalizeProductSnapshot(product, ['dom', 'json-ld', 'product-detail-api', 'variants-api']);
     }
@@ -2482,6 +2726,10 @@
   /** 异步采集（等待加载完成） */
   window.__geekOzonScanAsync = function () {
     return scannerInstance.scanAsync();
+  };
+
+  window.__geekOzonScanProductBySku = function (sku) {
+    return scannerInstance.scanProductBySku(sku);
   };
 
   /** 返回采集与一键上架共用的最后一次完整快照。 */

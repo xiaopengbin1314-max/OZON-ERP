@@ -46,6 +46,9 @@ def ensure_platform_sku_codes(product, now=None):
     for index, sku in enumerate(skus, start=1):
         if not isinstance(sku, dict):
             continue
+        source_sku = str(sku.get('sourceSku') or sku.get('source_sku') or sku.get('sku') or '').strip()
+        if source_sku:
+            sku['sourceSku'] = source_sku
         existing = str(sku.get('skuCode') or sku.get('offerId') or sku.get('offer_id') or '').strip()
         if existing and existing not in used:
             platform_sku = existing

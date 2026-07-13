@@ -54,6 +54,14 @@
     return url.replace(/\.jpg_(?:sum|b)\.jpg$/i, '.jpg').replace(/_\d+x\d+\.(jpg|png|webp)$/i, '.$1');
   }
 
+  function isValidProductImage(url, img) {
+    const value = String(url || '').toLowerCase();
+    if (!value || /data:image|placeholder|lazyload\.png|loading|logo|icon|arrow|button/.test(value)) return false;
+    if (!/alicdn|1688|alibaba/.test(value)) return false;
+    if (img && img.closest && img.closest('button, .button, [role="button"], .video-icon, .gallery-button')) return false;
+    return !img || !img.width || !img.height || (img.width > 20 && img.height > 20);
+  }
+
   function elementImage(el) {
     if (!el) return '';
     const img = el.matches && el.matches('img') ? el : el.querySelector('img');
@@ -160,7 +168,43 @@
         result.push({ name: name, value: value });
       }
     });
+    document.querySelectorAll('#productAttributes .ant-descriptions-row, .ant-descriptions-row').forEach(function (row) {
+      const names = row.querySelectorAll('.ant-descriptions-item-label span, .ant-descriptions-item-label');
+      const values = row.querySelectorAll('.ant-descriptions-item-content .field-value, .ant-descriptions-item-content');
+      for (let i = 0; i < Math.min(names.length, values.length); i++) {
+        const name = (names[i].textContent || '').replace(/[:：]\s*$/, '').trim();
+        const value = (values[i].textContent || '').trim();
+        if (name && value && name !== value && !result.some(function (item) { return item.name === name; })) {
+          result.push({ name: name, value: value });
+        }
+      }
+    });
     return result;
+  }
+
+  function collectDescription() {
+    const texts = [];
+    const images = [];
+    const addRoot = function (root) {
+      if (!root) return;
+      const text = (root.textContent || '').replace(/\s+/g, ' ').trim();
+      if (text.length > 10 && texts.indexOf(text) < 0) texts.push(text);
+      root.querySelectorAll('img').forEach(function (img) {
+        const url = original1688Image(
+          img.getAttribute('data-lazyload-src') || img.getAttribute('data-src') ||
+          img.getAttribute('data-original') || img.getAttribute('data-lazy') || img.src || ''
+        );
+        if (isValidProductImage(url, img) && images.indexOf(url) < 0) images.push(url);
+      });
+    };
+    document.querySelectorAll(
+      '#detailContentContainer, .html-description, .detail-content, .detail-desc, ' +
+      '.desc-lazyload-container, .offer-detail-content'
+    ).forEach(function (root) {
+      addRoot(root);
+      if (root.shadowRoot) addRoot(root.shadowRoot);
+    });
+    return { text: texts.join('\n'), images: images };
   }
 
   /**
@@ -226,20 +270,27 @@
       const imgs = [];
       imgEls.forEach(function (img) {
         const src = original1688Image(img.getAttribute('src') || img.getAttribute('data-src') || img.getAttribute('data-lazy') || '');
-        if (src && imgs.indexOf(src) === -1) imgs.push(src);
+        if (isValidProductImage(src, img) && imgs.indexOf(src) === -1) imgs.push(src);
       });
       if (imgs.length === 0 && product.mainImage) imgs.push(product.mainImage);
       product.images = imgs;
-      imagesFromInlineScripts().forEach(function (url) {
-        if (product.images.indexOf(url) === -1) product.images.push(url);
-      });
+      if (product.images.length < 2) {
+        imagesFromInlineScripts().forEach(function (url) {
+          if (isValidProductImage(url) && product.images.indexOf(url) === -1) product.images.push(url);
+        });
+      }
       if (!product.mainImage && product.images.length) product.mainImage = product.images[0];
       product.detailImages = Array.from(document.querySelectorAll(
         '.detail-content img, .detail-desc img, .desc-lazyload-container img, ' +
         '.offer-detail-content img, [class*="detail"] [data-src], [class*="description"] img'
       )).map(function (img) {
         return original1688Image(img.getAttribute('data-src') || img.getAttribute('data-lazy') || img.src || '');
-      }).filter(function (url, index, all) { return url && all.indexOf(url) === index; });
+      }).filter(function (url, index, all) { return isValidProductImage(url) && all.indexOf(url) === index; });
+      const description = collectDescription();
+      product.description = description.text;
+      description.images.forEach(function (url) {
+        if (product.detailImages.indexOf(url) < 0) product.detailImages.push(url);
+      });
 
       const video = document.querySelector('video source, .video-player source, video');
       product.videos = video && (video.src || video.getAttribute('src')) ? [video.src || video.getAttribute('src')] : [];
@@ -256,10 +307,13 @@
         const values = skuRows.map(function (row) { return row.name; });
         product.skuAttrs = [{ name: '规格选项', values: values, skuType: 'text', attrCategory: 'sales' }];
         product.skus = skuRows.map(function (row, index) {
+          const sourceSku = product.sku + '-' + (index + 1);
           return {
-            skuCode: product.sku + '-' + (index + 1),
-            offerId: product.sku + '-' + (index + 1),
+            sourceSku: sourceSku,
             price: row.price,
+            sourcePrice: row.price,
+            image: row.image || '',
+            primary_image: row.image || '',
             images: row.image ? [row.image] : [],
             combo: { '规格选项': row.name },
           };
@@ -267,6 +321,16 @@
         product.skuList = product.skus.map(function (row) { return Object.assign({}, row); });
       }
       product.attributes = collectAttributes();
+      const packageWeightText = pickText([
+        '#productPackInfo td.field-value', '#productPackInfo .field-value',
+        '[class*="productPackInfo"] [class*="field-value"]',
+      ]);
+      const packageWeight = numericPrice(packageWeightText);
+      if (packageWeight > 0) {
+        product.weight = packageWeight;
+        product.weightValue = packageWeight;
+        product.weightUnit = /kg|千克|公斤/i.test(packageWeightText) ? 'kg' : 'g';
+      }
 
       // 类目：1688 多次改版，提供多个兜底选择器
       // 取面包屑最后一级文本作为源类目
@@ -371,6 +435,17 @@
         '[data-module="shopCard"] .name',
       ]);
 
+      product.scannerVersion = '3.0.2-1688-maozi-aligned';
+      product.collectionDiagnostics = {
+        title: !!product.title,
+        images: product.images.length,
+        detailImages: product.detailImages.length,
+        skus: product.skus.length,
+        attributes: product.attributes.length,
+        category: !!(product.category || product.categoryPath),
+        capturedAt: new Date().toISOString(),
+      };
+
       return product;
     }
 
@@ -382,8 +457,16 @@
         '[data-module="offerTitle"], .offer-title, .mod-detail-title',
         8000
       );
-      // 二次保险：再等一小段让价格/图片渲染
-      await new Promise(function (r) { setTimeout(r, 400); });
+      // 1688 renders SKU and detail modules after the title. Wait briefly for
+      // either module, while keeping single-SKU pages responsive.
+      await Promise.race([
+        DomUtils.waitForElement(
+          '.sku-item-wrapper, .expand-view-item, .single-sku-list-wrap, ' +
+          '#detailContentContainer, .html-description',
+          2500
+        ),
+        new Promise(function (r) { setTimeout(r, 1500); }),
+      ]);
       return this.scan();
     }
   }

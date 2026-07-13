@@ -42,13 +42,17 @@
       }
       if (options.signal) fetchOpts.signal = options.signal;
 
-      // 默认 6s 超时（防止 backend 不响应导致 await 永久挂起）
+      // 默认超时（防止 backend 不响应导致 await 永久挂起）。计时器属于
+      // ApiClient，不能作为自定义字段塞进 fetch options。
+      let timeoutTimer = null;
+      let timeoutController = null;
+      const timeoutMs = Number(options.timeout) || 10000;
       if (!fetchOpts.signal) {
-        const ctrl = new AbortController();
-        const timer = setTimeout(function () { ctrl.abort(); }, options.timeout || 6000);
-        fetchOpts.signal = ctrl.signal;
-        // 保存 timer 引用以便 finally 清理
-        fetchOpts._abortTimer = timer;
+        timeoutController = new AbortController();
+        timeoutTimer = setTimeout(function () {
+          timeoutController.abort();
+        }, timeoutMs);
+        fetchOpts.signal = timeoutController.signal;
       }
 
       _lastRequestAt = Date.now();
@@ -61,11 +65,15 @@
         catch (_) { json = { code: -1, msg: '响应非 JSON: ' + text.slice(0, 200), data: null }; }
         return json;
       } catch (err) {
-        console.error('[GeekOzon] API 请求失败:', path, err.message);
-        return { code: -1, msg: err.message, data: null };
+        const timedOut = !!(timeoutController && timeoutController.signal.aborted);
+        const aborted = timedOut || (err && (err.name === 'AbortError' || /aborted/i.test(String(err.message || ''))));
+        const message = timedOut
+          ? `ERP 请求超时（${Math.round(timeoutMs / 1000)}秒）：${path}`
+          : (aborted ? `ERP 请求已取消：${path}` : (err.message || '网络请求失败'));
+        console.error('[GeekOzon] API 请求失败:', path, message, err);
+        return { code: -1, msg: message, data: null, errorType: timedOut ? 'timeout' : (aborted ? 'aborted' : 'network') };
       } finally {
-        // 清理超时 timer
-        if (fetchOpts._abortTimer) clearTimeout(fetchOpts._abortTimer);
+        if (timeoutTimer) clearTimeout(timeoutTimer);
       }
     },
 
@@ -139,14 +147,14 @@
       return this.get('/api/shops/lists');
     },
 
-    /** 采集商品（超时 20s，因后端可能涉及类目匹配+AI 调用） */
+    /** 采集商品（后端可能涉及类目匹配、属性清洗和字典匹配） */
     collectProduct: function (data) {
-      return this.post('/api/products/collect', data, { timeout: 20000 });
+      return this.post('/api/products/collect', data, { timeout: 45000 });
     },
 
     /** 发布商品 */
     publishProducts: function (data) {
-      return this.post('/api/publish', data);
+      return this.post('/api/publish', data, { timeout: 20000 });
     },
 
     fetchPublishStatus: function (taskId) {

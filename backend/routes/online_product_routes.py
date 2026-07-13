@@ -17,6 +17,7 @@
 """
 from flask import Blueprint, request
 import json
+from datetime import datetime
 from models.online_product import OnlineProduct, from_ozon_info
 from models.account import Store
 from services.ozon_api import (
@@ -102,6 +103,57 @@ def get_online_product_stats():
     """各状态统计"""
     stats = OnlineProduct.get_stats()
     return success_response(data=stats)
+
+
+@online_product_bp.route('/online-products/sync-content-scores', methods=['POST'])
+@handle_errors
+def sync_online_product_content_scores():
+    """独立同步 Ozon 内容评分，不修改商品状态、价格或库存。"""
+    products, _ = OnlineProduct.find_all(page=1, page_size=100000)
+    by_store = {}
+    for product in products:
+        by_store.setdefault(product.get('storeId'), []).append(product)
+
+    updated = unrated = failed = 0
+    for store_id, store_products in by_store.items():
+        client_id, api_key, _, _ = _get_store_info(store_id)
+        if not client_id:
+            failed += len(store_products)
+            continue
+        for start in range(0, len(store_products), 100):
+            batch_products = store_products[start:start + 100]
+            product_ids = [p.get('ozonProductId') or p.get('productId') for p in batch_products]
+            try:
+                info_rows = get_product_info_list(product_ids, client_id=client_id, api_key=api_key)
+                info_by_id = {str(row.get('id')): row for row in info_rows if row.get('id')}
+                sku_to_product = {}
+                for product in batch_products:
+                    info = info_by_id.get(str(product.get('ozonProductId') or product.get('productId'))) or {}
+                    if info.get('sku'):
+                        sku_to_product[str(info['sku'])] = product
+                ratings = get_product_content_ratings(
+                    list(sku_to_product), client_id=client_id, api_key=api_key,
+                )
+                rating_by_sku = {str(row.get('sku')): row.get('rating') for row in ratings}
+                for sku, product in sku_to_product.items():
+                    score = rating_by_sku.get(sku)
+                    if score is None:
+                        unrated += 1
+                        continue
+                    OnlineProduct.upsert({
+                        'ozon_product_id': product.get('ozonProductId') or product.get('productId'),
+                        'content_score': float(score),
+                        'last_synced_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                    })
+                    updated += 1
+                unrated += max(0, len(batch_products) - len(sku_to_product))
+            except (OzonAPIError, ValueError, TypeError) as e:
+                print(f'[内容评分同步] 批次失败: {e}')
+                failed += len(batch_products)
+    return success_response(data={
+        'total': len(products), 'updated': updated,
+        'unrated': unrated, 'failed': failed,
+    }, msg=f'内容评分同步完成：更新 {updated}，未评分 {unrated}，失败 {failed}')
 
 
 @online_product_bp.route('/online-products/<int:item_id>', methods=['GET'])

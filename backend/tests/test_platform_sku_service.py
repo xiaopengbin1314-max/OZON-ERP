@@ -41,6 +41,14 @@ class PlatformSkuServiceTests(unittest.TestCase):
         self.assertNotEqual('ERP-SKU-1', skus[1]['skuCode'])
         self.assertEqual(2, len({sku['skuCode'] for sku in skus}))
 
+    def test_preserves_marketplace_sku_before_generating_platform_sku(self):
+        product = {'platform': 'ozon', 'skus': [{'sku': '204152133'}]}
+
+        skus = ensure_platform_sku_codes(product, now=datetime(2026, 7, 12, 9, 30))
+
+        self.assertEqual('204152133', skus[0]['sourceSku'])
+        self.assertEqual('ozon-07120930', skus[0]['skuCode'])
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -9,6 +9,7 @@ if BACKEND_DIR not in sys.path:
     sys.path.insert(0, BACKEND_DIR)
 
 from services.publish_service import (
+    _normalize_color_name_for_ozon,
     _match_dict_value,
     build_ozon_attributes,
     build_ozon_product_items,
@@ -40,7 +41,41 @@ def _product(skus):
 
 
 class PublishPayloadTests(unittest.TestCase):
-    def test_collected_color_collection_is_flattened_for_one_sku(self):
+    def test_video_cover_and_description_videos_are_assembled_for_every_sku_item(self):
+        product = _product([
+            {'skuCode': 'VIDEO-1', 'price': 100},
+            {'skuCode': 'VIDEO-2', 'price': 110},
+        ])
+        product.update({
+            'coverVideoUrl': 'https://cdn.test/cover.mp4',
+            'videoList': [
+                'https://cdn.test/detail-a.mp4',
+                'https://cdn.test/detail-b.mp4',
+            ],
+            'videos': [
+                'https://cdn.test/cover.mp4',
+                'https://cdn.test/detail-a.mp4',
+                'https://cdn.test/detail-b.mp4',
+            ],
+        })
+
+        items = build_ozon_product_items(product, publish_mode='split')
+
+        self.assertEqual(2, len(items))
+        for item in items:
+            attrs = {attr['id']: attr['values'] for attr in item['attributes']}
+            self.assertEqual([{'value': 'https://cdn.test/cover.mp4'}], attrs[21845])
+            self.assertEqual([
+                {'value': 'https://cdn.test/detail-a.mp4'},
+                {'value': 'https://cdn.test/detail-b.mp4'},
+            ], attrs[21841])
+
+    def test_color_name_10097_removes_chinese_display_label(self):
+        self.assertEqual('синий', _normalize_color_name_for_ozon('蓝色（синий）'))
+        self.assertEqual('черный матовый', _normalize_color_name_for_ozon('哑光黑色（черный матовый）'))
+        self.assertEqual('Cosmo Black', _normalize_color_name_for_ozon('Cosmo Black'))
+
+    def test_collected_color_collection_preserves_all_dictionary_values_for_one_sku(self):
         product = {
             'title': 'Компактный маленький мини зонт - 6 спиц',
             'skuAttrs': [
@@ -65,11 +100,23 @@ class PublishPayloadTests(unittest.TestCase):
 
         normalize_collected_color_skus(product)
 
-        self.assertEqual(['哑光黑色（черный матовый）'], product['skuAttrs'][0]['values'])
-        self.assertEqual([970671251], product['skuAttrs'][0]['valueIds'])
+        self.assertEqual(['哑光黑色（черный матовый）, 黑色（черный）'], product['skuAttrs'][0]['values'])
+        self.assertEqual([[970671251, 61574]], product['skuAttrs'][0]['valueIds'])
         self.assertEqual(['черный'], product['skuAttrs'][1]['values'])
         self.assertEqual('черный', product['skus'][0]['combo']['颜色名称（Название цвета）'])
         self.assertEqual(product['title'], product['skus'][0]['title'])
+
+        product.update({
+            'id': 'multi-color-product', 'price': 100, 'weight': 100,
+            'length': 100, 'width': 100, 'height': 100,
+            'images': ['https://example.com/a.jpg'], 'attributes': [],
+        })
+        item = build_ozon_product_items(product, publish_mode='split')[0]
+        color = next(attr for attr in item['attributes'] if attr['id'] == 10096)
+        self.assertEqual([
+            {'dictionary_value_id': 970671251},
+            {'dictionary_value_id': 61574},
+        ], color['values'])
 
     def test_variant_description_uses_actual_color_segment(self):
         product = {
@@ -217,6 +264,18 @@ class PublishPayloadTests(unittest.TestCase):
 
         color_name = next(attr for attr in item['attributes'] if attr['id'] == 10097)
         self.assertEqual('Белый', color_name['values'][0]['value'])
+
+    def test_single_sku_payload_strips_chinese_from_color_name_10097(self):
+        product = _product([{
+            'skuCode': 'SKU-BLUE',
+            'price': 100,
+            'combo': {'颜色名称（Название цвета）': '蓝色（синий）'},
+        }])
+
+        item = build_ozon_product_items(product)[0]
+
+        color_name = next(attr for attr in item['attributes'] if attr['id'] == 10097)
+        self.assertEqual([{'value': 'синий'}], color_name['values'])
 
     @patch('services.publish_service._find_color_id', return_value=61574)
     def test_one_click_sku_assembles_platform_sku_and_both_color_attributes(self, _find_color):

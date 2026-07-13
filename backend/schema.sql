@@ -369,3 +369,22 @@ CREATE INDEX IF NOT EXISTS idx_online_products_ozon_pid ON online_products(ozon_
 CREATE INDEX IF NOT EXISTS idx_online_products_ozon_offer ON online_products(ozon_offer_id);
 CREATE INDEX IF NOT EXISTS idx_online_products_grp ON online_products(grp);
 CREATE INDEX IF NOT EXISTS idx_online_products_updated ON online_products(updated_at);
+
+-- ===== 我的图库 =====
+CREATE TABLE IF NOT EXISTS gallery_assets (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    filename        TEXT NOT NULL UNIQUE,
+    original_name   TEXT NOT NULL DEFAULT '',
+    title           TEXT NOT NULL DEFAULT '',
+    mime_type       TEXT NOT NULL DEFAULT 'image/png',
+    file_size       INTEGER NOT NULL DEFAULT 0,
+    source          TEXT NOT NULL DEFAULT 'upload',
+    prompt          TEXT NOT NULL DEFAULT '',
+    tags            TEXT NOT NULL DEFAULT '[]',
+    favorite        INTEGER NOT NULL DEFAULT 0,
+    created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at      TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_gallery_assets_created ON gallery_assets(created_at);
+CREATE INDEX IF NOT EXISTS idx_gallery_assets_source ON gallery_assets(source);
+CREATE INDEX IF NOT EXISTS idx_gallery_assets_favorite ON gallery_assets(favorite);

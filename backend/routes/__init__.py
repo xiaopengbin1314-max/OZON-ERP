@@ -19,6 +19,7 @@ from routes.selection_routes import selection_bp
 from routes.favorite_routes import favorite_bp
 from routes.online_product_routes import online_product_bp
 from routes.dashboard_routes import dashboard_bp
+from routes.gallery_routes import gallery_bp
 
 
 def register_blueprints(app):
@@ -39,3 +40,4 @@ def register_blueprints(app):
     app.register_blueprint(favorite_bp, url_prefix='/api')
     app.register_blueprint(online_product_bp, url_prefix='/api')
     app.register_blueprint(dashboard_bp, url_prefix='/api')
+    app.register_blueprint(gallery_bp, url_prefix='/api')

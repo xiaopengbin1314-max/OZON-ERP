@@ -660,6 +660,12 @@ const Api = (() => {
     });
   }
 
+  function syncOnlineProductContentScores() {
+    return request('/api/online-products/sync-content-scores', {
+      method: 'POST', timeout: 180000,
+    });
+  }
+
   /** 更新在线商品本地字段（不推送 Ozon） */
   function updateOnlineProduct(id, data) {
     return request(`/api/online-products/${id}`, {
@@ -705,6 +711,37 @@ const Api = (() => {
   /** 删除单个在线商品（仅本地） */
   function deleteOnlineProduct(id) {
     return request(`/api/online-products/${id}`, { method: 'DELETE' });
+  }
+
+  function getGallery(params = {}) {
+    const qs = new URLSearchParams(params).toString();
+    return request(`/api/gallery${qs ? '?' + qs : ''}`);
+  }
+
+  async function uploadGallery(files, tags = '') {
+    const form = new FormData();
+    Array.from(files || []).forEach(file => form.append('files', file));
+    form.append('tags', tags);
+    try {
+      const response = await fetch(`${BASE_URL}/api/gallery/upload`, { method: 'POST', body: form });
+      return await response.json();
+    } catch (error) {
+      return { code: -1, msg: error.message, data: null };
+    }
+  }
+
+  function updateGalleryAsset(id, data) {
+    return request(`/api/gallery/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+  }
+
+  function deleteGalleryAsset(id) {
+    return request(`/api/gallery/${id}`, { method: 'DELETE' });
+  }
+
+  function generateAIImages(data) {
+    return request('/api/ai/images/generate', {
+      method: 'POST', body: JSON.stringify(data), timeout: 240000,
+    });
   }
 
   // 公开接口
@@ -782,12 +819,18 @@ const Api = (() => {
     saveOnlineProductEditData,
     syncOnlineProducts,
     syncOnlineProduct,
+    syncOnlineProductContentScores,
     updateOnlineProduct,
     updateOnlineProductPrice,
     updateOnlineProductStock,
     batchUpdateOnlineProducts,
     batchDeleteOnlineProducts,
     deleteOnlineProduct,
+    getGallery,
+    uploadGallery,
+    updateGalleryAsset,
+    deleteGalleryAsset,
+    generateAIImages,
     request,
   };
 })();

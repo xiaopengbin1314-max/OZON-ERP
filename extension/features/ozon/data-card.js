@@ -353,11 +353,23 @@
       // 上架
       const publishBtn = root.querySelector('#goPublishBtn');
       if (publishBtn) {
-        publishBtn.onclick = function () {
-          if (typeof window.__geekOzonOpenPublishModal === 'function') {
-            window.__geekOzonOpenPublishModal(self.lastData);
-          } else {
+        publishBtn.onclick = async function () {
+          if (typeof window.__geekOzonOpenPublishModal !== 'function') {
             console.warn('[GeekOzon] __geekOzonOpenPublishModal 未注入');
+            return;
+          }
+          try {
+            let product = typeof window.__geekOzonGetLastProduct === 'function'
+              ? window.__geekOzonGetLastProduct() : null;
+            if (!product && typeof window.__geekOzonScanAsync === 'function') {
+              product = await window.__geekOzonScanAsync();
+            }
+            if (!product || !product.title || !Array.isArray(product.images) || !product.images.length) {
+              throw new Error('商品完整数据尚未采集，请刷新页面后重试');
+            }
+            window.__geekOzonOpenPublishModal(product);
+          } catch (error) {
+            console.warn('[GeekOzon] 数据卡上架前采集失败:', error);
           }
         };
       }
@@ -573,7 +585,7 @@
           offers: this.lastOffers,
         });
         return '__DONE__';
-      }).bind(this));
+      }).bind(this);
 
       try {
         const result = await Promise.race([work(), deadline]);

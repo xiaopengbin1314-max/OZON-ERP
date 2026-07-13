@@ -165,6 +165,7 @@ function cleanDescription(desc) {
     .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
+    .replace(/^\s*Описание(?:\s*[:：\-–—]\s*|\s+)(?=\S)/i, '')
     .replace(/\n{3,}/g, '\n\n')
     .trim()
     .slice(0, 5000);
@@ -776,23 +777,27 @@ function buildOzonSkus(skus, skuAttrs) {
         if (attrDef && attrDef.attrId) {
           if ((attrDef.skuType === 'color' || attrDef.skuType === 'select') && attrDef.dictionaryId) {
             // 字典类销售属性（颜色/尺码等）：优先使用 valueIds 查找 dictionary_value_id
-            let dictVid = null;
+            let dictVids = [];
             if (Array.isArray(attrDef.valueIds) && Array.isArray(attrDef.values)) {
               const valIdx = attrDef.values.indexOf(attrValue);
               if (valIdx >= 0) {
-                dictVid = attrDef.valueIds[valIdx];
+                const stored = attrDef.valueIds[valIdx];
+                dictVids = (Array.isArray(stored) ? stored : [stored]).filter(Boolean);
               }
             }
             // 颜色属性回退：从颜色字典缓存中查找
-            if (!dictVid && attrDef.skuType === 'color' && window._colorDictCache && window._colorDictCache[`${attrDef.dictionaryId}`]) {
+            if (dictVids.length === 0 && attrDef.skuType === 'color' && window._colorDictCache && window._colorDictCache[`${attrDef.dictionaryId}`]) {
               const dictValues = window._colorDictCache[`${attrDef.dictionaryId}`];
-              const match = dictValues.find(v => v.value === attrValue || v.value_zh === attrValue);
-              if (match) dictVid = match.value_id;
+              const colorValues = String(attrValue || '').split(/[,，;；]+/).map(v => v.trim()).filter(Boolean);
+              dictVids = colorValues.map(colorValue => {
+                const match = dictValues.find(v => v.value === colorValue || v.value_zh === colorValue || v.value_ru === colorValue);
+                return match?.value_id || null;
+              }).filter(Boolean);
             }
-            if (dictVid) {
+            if (dictVids.length > 0) {
               source.attributes.push({
                 id: attrDef.attrId,
-                values: [{ dictionary_value_id: dictVid }]
+                values: dictVids.map(dictionary_value_id => ({ dictionary_value_id }))
               });
             } else {
               // 无 value_id 时作为文本值提交

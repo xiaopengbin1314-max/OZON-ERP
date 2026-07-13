@@ -603,19 +603,14 @@
       btn.innerHTML = G.components.Icon('loading', 12);
       btn.classList.add('go-mini-spin');
       try {
-        // 触发采集
-        if (typeof window.__geekOzonCollect === 'function') {
-          await window.__geekOzonCollect({ sku: sku, source: 'list_edit_publish' });
-        } else {
-          await ApiClient.collectProduct({
-            platform: 'ozon',
-            sku: sku,
-            sourceUrl: location.href,
-            collectedAt: new Date().toISOString(),
-          });
-        }
-        // 加载商品详情
         const productInfo = await this.loadProductInfo(sku);
+        const collected = await ApiClient.collectProduct(Object.assign({}, productInfo, {
+          source: 'list_edit_publish',
+          collectedAt: new Date().toISOString(),
+        }));
+        if (!ApiClient.isOk(collected)) {
+          throw new Error((collected && collected.msg) || '采集失败');
+        }
         if (typeof window.__geekOzonOpenPublishModal === 'function') {
           window.__geekOzonOpenPublishModal(Object.assign({}, productInfo, { _editMode: true }));
         }
@@ -667,27 +662,24 @@
      * @returns {Promise<object>}
      */
     async loadProductInfo(sku) {
-      // 1. 先查 mini-card 数据缓存
-      if (dataCache[sku]) {
-        const d = dataCache[sku];
-        return {
-          sku: sku,
-          platform: 'ozon',
-          mainImage: '',
-          images: [],
-          price: d.minOffer,
-          sourceUrl: location.href,
-          minOffer: d.minOffer,
-          blackPrice: d.blackPrice,
-          sales: d.sales,
-        };
+      const last = typeof window.__geekOzonGetLastProduct === 'function'
+        ? window.__geekOzonGetLastProduct() : null;
+      if (last && String(last.sku || last.productId || '') === String(sku)) {
+        return last;
       }
-      // 2. 兜底：仅传 sku，让 publish-modal 自行采集
-      return {
-        sku: sku,
-        platform: 'ozon',
-        sourceUrl: location.href,
-      };
+      if (typeof window.__geekOzonScanProductBySku !== 'function') {
+        throw new Error('完整商品采集模块未加载，请刷新页面后重试');
+      }
+      const product = await window.__geekOzonScanProductBySku(sku);
+      if (!product || !product.title || !Array.isArray(product.images) || !product.images.length) {
+        throw new Error('商品详情不完整，请进入商品详情页后再上架');
+      }
+      if (dataCache[sku]) {
+        product.minOffer = dataCache[sku].minOffer;
+        product.blackPrice = dataCache[sku].blackPrice;
+        product.sales = dataCache[sku].sales;
+      }
+      return product;
     }
 
     /** 切换收藏 */
@@ -710,22 +702,19 @@
         return;
       }
       btn.innerHTML = '<svg class="go-mini-spin" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>';
-      // 复用 ozon-scanner，但列表页可能不在商品详情页
-      // 这里只发送消息给当前 tab 的 scanner（如果存在），否则提示
-      if (typeof window.__geekOzonCollect === 'function') {
-        await window.__geekOzonCollect();
-      } else {
-        // 在列表页直接用 SKU 提交
-        await ApiClient.collectProduct({
-          platform: 'ozon',
-          sku: sku,
-          sourceUrl: location.href,
-          collectedAt: new Date().toISOString(),
-        });
+      try {
+        const product = await this.loadProductInfo(sku);
+        product.collectedAt = new Date().toISOString();
+        const response = await ApiClient.collectProduct(product);
+        if (!ApiClient.isOk(response)) throw new Error((response && response.msg) || '采集失败');
+        collectedSkus.add(sku);
+        btn.innerHTML = G.components.Icon('check', 13);
+        setTimeout(function () { btn.innerHTML = G.components.Icon('package', 13); }, 1500);
+      } catch (error) {
+        console.warn('[GeekOzon] 列表商品采集失败:', error);
+        btn.innerHTML = G.components.Icon('package', 13);
+        btn.title = error.message || '采集失败';
       }
-      collectedSkus.add(sku);
-      btn.innerHTML = G.components.Icon('check', 13);
-      setTimeout(function () { btn.innerHTML = G.components.Icon('package', 13); }, 1500);
     }
 
     /**

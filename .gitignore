@@ -41,3 +41,6 @@ Thumbs.db
 # Node (如后续引入)
 node_modules/
 dist/
+
+# Local reference extension source; never publish to this repository
+/maozi-plugin-2.4.3/

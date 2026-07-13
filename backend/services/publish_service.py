@@ -949,6 +949,51 @@ def validate_ozon_product_items(product, items):
 COLOR_NAME_KEYWORDS = ('颜色名称', 'Название цвета', 'название цвета', 'color name')
 
 
+def _normalize_color_name_for_ozon(value):
+    """Strip translated UI labels from Ozon 10097 text values."""
+    text = str(value or '').strip()
+    if not text:
+        return ''
+    text = text.replace('（', '(').replace('）', ')')
+    has_cjk = bool(re.search(r'[\u3400-\u9fff]', text))
+    if has_cjk:
+        translated = [
+            part.strip()
+            for part in re.findall(r'\(([^()]*)\)', text)
+            if part.strip()
+            and not re.search(r'[\u3400-\u9fff]', part)
+            and re.search(r'[A-Za-z\u0400-\u04ff]', part)
+        ]
+        if translated:
+            text = ', '.join(translated)
+        else:
+            text = re.sub(r'[\u3400-\u9fff]+', ' ', text)
+            text = re.sub(r'[()]', ' ', text)
+    text = re.sub(r'\s+', ' ', text)
+    text = re.sub(r'^\s*[,;/]+|[,;/]+\s*$', '', text)
+    return text.strip()
+
+
+def _normalize_dictionary_color_label(value):
+    """Normalize scanner punctuation without changing the human color name."""
+    text = re.sub(r'\s+', ' ', str(value or '')).strip()
+    return re.sub(r'[.;。；]+$', '', text).strip()
+
+
+def _split_dictionary_color_values(value):
+    """Return individual values for Ozon multi-select color attribute 10096."""
+    if isinstance(value, (list, tuple, set)):
+        raw_values = value
+    else:
+        raw_values = re.split(r'[,，;；]+', str(value or ''))
+    values = []
+    for raw_value in raw_values:
+        normalized = _normalize_dictionary_color_label(raw_value)
+        if normalized and normalized not in values:
+            values.append(normalized)
+    return values
+
+
 def promote_collected_sku_combos(product):
     """Build missing skuAttrs from scanner combo/attributes without inventing colors."""
     skus = product.get('skus') or []
@@ -959,10 +1004,32 @@ def promote_collected_sku_combos(product):
         sku_attrs = []
 
     values_by_key = {}
+    repaired_explicit_color = False
+    repaired_generic_names = set()
+    explicit_color_keys = set()
     for sku in skus:
         if not isinstance(sku, dict):
             continue
-        source = sku.get('combo') if isinstance(sku.get('combo'), dict) and sku.get('combo') else sku.get('attributes')
+        combo_source = sku.get('combo') if isinstance(sku.get('combo'), dict) else {}
+        raw_attributes = sku.get('attributes') if isinstance(sku.get('attributes'), dict) else {}
+        raw_color_key = next((key for key in raw_attributes if str(key).strip().lower() in {
+            '\u0446\u0432\u0435\u0442', 'color', 'colour',
+            '\u989c\u8272', '\u5546\u54c1\u989c\u8272',
+        }), None)
+        combo_items = list(combo_source.items())
+        raw_color_value = raw_attributes.get(raw_color_key) if raw_color_key else None
+        if (
+            len(combo_items) == 1 and raw_color_key
+            and str(combo_items[0][1] or '').strip() == str(raw_color_value or '').strip()
+        ):
+            # Historical normalization downgraded explicit Ozon Цвет aspects
+            # to a generic variant. The source attributes are authoritative.
+            source = {raw_color_key: raw_attributes.get(raw_color_key)}
+            repaired_explicit_color = True
+            repaired_generic_names.add(str(combo_items[0][0]))
+            explicit_color_keys.add(str(raw_color_key).strip().lower())
+        else:
+            source = combo_source or raw_attributes
         source = source if isinstance(source, dict) else {}
         combo = dict(source)
         sku['combo'] = combo
@@ -1000,8 +1067,9 @@ def promote_collected_sku_combos(product):
             continue
 
         is_generic_color = lower in {'color', 'colour', 'цвет'}
+        is_explicit_color = lower in explicit_color_keys
         color_ratio = sum(bool(color_pattern.search(value)) for value in values) / max(1, len(values))
-        if is_generic_color and color_ratio < 0.6:
+        if is_generic_color and not is_explicit_color and color_ratio < 0.6:
             # Historical scanners labeled every unstructured variant as color.
             new_name = '变体'
             for sku in skus:
@@ -1012,7 +1080,7 @@ def promote_collected_sku_combos(product):
                 'name': new_name, 'values': values, 'skuType': 'text',
                 'attrCategory': 'sales', 'required': False,
             })
-        elif is_generic_color:
+        elif is_generic_color or is_explicit_color:
             color_key = '商品颜色（Цвет товара）'
             color_name_key = '颜色名称（Название цвета）'
             for sku in skus:
@@ -1033,6 +1101,15 @@ def promote_collected_sku_combos(product):
                 'name': key, 'values': values, 'skuType': 'text',
                 'attrCategory': 'sales', 'required': False,
             })
+
+    if repaired_explicit_color:
+        sku_attrs = [
+            attr for attr in sku_attrs
+            if not (
+                isinstance(attr, dict) and not attr.get('attrId')
+                and str(attr.get('name') or '') in repaired_generic_names
+            )
+        ]
 
     for definition in promoted:
         definition_id = str(definition.get('attrId') or '')
@@ -1196,50 +1273,91 @@ def normalize_collected_color_skus(product):
     normalized_values = []
     normalized_ids = []
     normalized_names = []
+    can_align_source_values = len(source_values) == len(skus)
     color_pattern = re.compile(
         r'(黑|白|灰|米|红|蓝|绿|黄|粉|紫|棕|橙|черн|бел|сер|беж|красн|син|голуб|зелен|зелён|желт|жёлт|розов|фиолет|сирен|корич|оранж|black|white|grey|gray|beige|red|blue|green|yellow|pink|purple|brown|orange)',
         re.I,
     )
 
-    def primary_color(value):
-        parts = [part.strip() for part in re.split(r'[,，;]+', str(value or '')) if part.strip()]
+    def dictionary_colors(value):
+        parts = _split_dictionary_color_values(value)
         color_parts = [part for part in parts if color_pattern.search(part)]
         has_non_color_spec = any(not color_pattern.search(part) for part in parts)
         if has_non_color_spec and color_parts:
-            return color_parts[-1]
-        return color_parts[0] if color_parts else (parts[0] if parts else '')
+            return color_parts
+        return color_parts or parts[:1]
 
     def clean_color_name(value):
         value = re.sub(r'^\s*\d+\s*(?:спиц(?:ы)?|骨)?\s*[-–—:]\s*', '', str(value or ''), flags=re.I)
         value = re.sub(r'\s*\([^)]*[A-ZА-Я]-?\d{3,}[^)]*\)\s*$', '', value, flags=re.I)
-        return value.strip()
+        return _normalize_color_name_for_ozon(value)
+
+    source_id_by_color = {}
+    for source_index, source_value in enumerate(source_values):
+        source_colors = dictionary_colors(source_value)
+        raw_source_ids = source_ids[source_index] if source_index < len(source_ids) else None
+        source_id_list = raw_source_ids if isinstance(raw_source_ids, list) else [raw_source_ids]
+        source_id_list = [item for item in source_id_list if item]
+        for color_index, source_color in enumerate(source_colors):
+            if color_index < len(source_id_list):
+                source_id_by_color.setdefault(source_color.casefold(), source_id_list[color_index])
+    colors_by_source_id = {}
+    for source_color, source_id in source_id_by_color.items():
+        colors_by_source_id.setdefault(str(source_id), set()).add(source_color)
+    suspicious_source_ids = {
+        source_id for source_id, colors in colors_by_source_id.items() if len(colors) > 1
+    }
 
     for index, sku in enumerate(skus):
         if not isinstance(sku, dict):
             continue
         combo = sku.get('combo') if isinstance(sku.get('combo'), dict) else {}
         sku['combo'] = combo
-        raw_color = combo.get(color_key) or (source_values[index] if index < len(source_values) else (source_values[0] if source_values else ''))
+        source_attributes = sku.get('attributes') if isinstance(sku.get('attributes'), dict) else {}
+        source_keys = [str(key or '').strip().lower() for key in source_attributes]
+        has_source_size = any(key in {'размер', 'size', '尺码', '尺寸'} for key in source_keys)
+        has_source_color = any(key in {'цвет', 'color', 'colour', '颜色', '商品颜色'} for key in source_keys)
+        if has_source_size and not has_source_color:
+            # Older normalization copied the first product color into aspect rows
+            # that were collected from a size-only Ozon dimension.
+            combo.pop(color_key, None)
+            if color_name_key:
+                combo.pop(color_name_key, None)
+        raw_color = combo.get(color_key)
+        if not raw_color and (can_align_source_values or len(skus) == 1):
+            raw_color = source_values[index] if index < len(source_values) else (source_values[0] if source_values else '')
         names = color_name_attr.get('values') if color_name_attr and isinstance(color_name_attr.get('values'), list) else []
         raw_name = combo.get(color_name_key) if color_name_key else ''
-        raw_name = raw_name or (names[index] if index < len(names) else (names[0] if names else ''))
+        if not raw_name and (len(names) == len(skus) or len(skus) == 1):
+            raw_name = names[index] if index < len(names) else (names[0] if names else '')
         if raw_color and not color_pattern.search(str(raw_color)) and raw_name:
             raw_color = raw_name
-        color = primary_color(raw_color)
-        raw_ids = source_ids[index] if index < len(source_ids) else (source_ids[0] if source_ids else None)
-        ids = raw_ids if isinstance(raw_ids, list) else [raw_ids]
-        ids = [item for nested in ids for item in (nested if isinstance(nested, list) else [nested]) if item]
-        color_id = ids[0] if ids else None
-        if color:
-            combo[color_key] = color
-            if color not in normalized_values:
-                normalized_values.append(color)
-                normalized_ids.append(color_id)
+        colors = dictionary_colors(raw_color)
+        color_ids = []
+        for color in colors:
+            color_id = source_id_by_color.get(color.casefold())
+            if not color_id or str(color_id) in suspicious_source_ids:
+                resolved_color_id = _find_color_id(
+                    color,
+                    description_category_id=product.get('descriptionCategoryId'),
+                    type_id=product.get('typeId'),
+                    attribute_id=_sku_attr_id(color_attr),
+                    dictionary_id=_sku_attr_dictionary_id(color_attr),
+                )
+                color_id = resolved_color_id or color_id
+            if color_id:
+                color_ids.append(color_id)
+        color_value = ', '.join(colors)
+        if color_value:
+            combo[color_key] = color_value
+            if color_value not in normalized_values:
+                normalized_values.append(color_value)
+                normalized_ids.append(color_ids if len(color_ids) > 1 else (color_ids[0] if color_ids else None))
         if color_name_key:
-            raw_name = raw_name or color
-            color_name = clean_color_name(raw_name) or color
-            combo[color_name_key] = color_name
+            raw_name = raw_name or color_value
+            color_name = clean_color_name(raw_name) or color_value
             if color_name and color_name not in normalized_names:
+                combo[color_name_key] = color_name
                 normalized_names.append(color_name)
         if product.get('title'):
             sku['title'] = product['title']
@@ -1486,19 +1604,39 @@ def build_ozon_skus(skus, sku_attrs, product=None):
                     print(f'[build_ozon_skus] 跳过属性 "{attr_name}": attr_def={attr_def is not None}, attrId={_sku_attr_id(attr_def) if attr_def else None}', flush=True)
                     continue
 
-                if attr_def.get('skuType') == 'color' and dictionary_id:
-                    # 颜色属性：需要查找 dictionary_value_id
-                    color_id = _find_color_id(
-                        attr_value,
-                        description_category_id=(product or {}).get('descriptionCategoryId'),
-                        type_id=(product or {}).get('typeId'),
-                        attribute_id=attr_id,
-                        dictionary_id=dictionary_id,
-                    )
+                is_product_color = str(attr_id) == '10096' or attr_def.get('skuType') == 'color'
+                if is_product_color and (dictionary_id or str(attr_id) == '10096'):
+                    # 10096 是多选字典属性。每种颜色必须单独回填，不能把整串文本
+                    # 当作一个字典值查询或提交。
+                    color_values = _split_dictionary_color_values(attr_value)
+                    stored_ids = []
+                    definition_values = attr_def.get('values') if isinstance(attr_def.get('values'), list) else []
+                    definition_ids = attr_def.get('valueIds') if isinstance(attr_def.get('valueIds'), list) else []
+                    try:
+                        value_index = definition_values.index(attr_value)
+                    except ValueError:
+                        value_index = -1
+                    if value_index >= 0 and value_index < len(definition_ids):
+                        raw_stored_ids = definition_ids[value_index]
+                        stored_ids = raw_stored_ids if isinstance(raw_stored_ids, list) else [raw_stored_ids]
+
+                    assembled_values = []
+                    for color_index, color_value in enumerate(color_values):
+                        color_id = stored_ids[color_index] if color_index < len(stored_ids) else None
+                        if not color_id:
+                            color_id = _find_color_id(
+                                color_value,
+                                description_category_id=(product or {}).get('descriptionCategoryId'),
+                                type_id=(product or {}).get('typeId'),
+                                attribute_id=attr_id,
+                                dictionary_id=dictionary_id or 1494,
+                            )
+                        assembled_values.append(
+                            {'dictionary_value_id': color_id} if color_id else {'value': str(color_value)}
+                        )
                     color_attr_item = {
                         'id': attr_id,
-                        'values': [{'dictionary_value_id': color_id}] if color_id
-                                   else [{'value': str(attr_value)}],
+                        'values': assembled_values,
                     }
                     # 颜色样本图：将 SKU 图片作为颜色样本上传到 Ozon
                     # Ozon API 中颜色属性的 images 字段用于上传颜色样本图，
@@ -1524,9 +1662,12 @@ def build_ozon_skus(skus, sku_attrs, product=None):
                     })
                 else:
                     # 文本属性（包括 SKU信息属性：件数/颜色名称/长度/重量等）
+                    text_value = _normalize_color_name_for_ozon(attr_value) if str(attr_id) == '10097' else str(attr_value)
+                    if not text_value:
+                        continue
                     sku_attr_list.append({
                         'id': attr_id,
-                        'values': [{'value': str(attr_value)}]
+                        'values': [{'value': text_value}]
                     })
 
             if sku_attr_list:
@@ -1787,6 +1928,39 @@ def _inject_merge_code_to_model_attr(attrs, merge_code):
     return result
 
 
+def _inject_product_video_attributes(attrs, product):
+    """Rebuild Ozon video attributes from ERP's canonical video fields."""
+    attrs = [dict(attr) for attr in attrs if isinstance(attr, dict)] if isinstance(attrs, list) else []
+    video_attr_ids = {'21845', '21841', '21837', '22273'}
+    attrs = [attr for attr in attrs if str(attr.get('id') or '') not in video_attr_ids]
+
+    def video_url(value):
+        if isinstance(value, dict):
+            value = value.get('url') or value.get('src') or value.get('video_url') or value.get('videoUrl')
+        value = str(value or '').strip()
+        return value if value.startswith(('http://', 'https://', '/api/')) else ''
+
+    flat_videos = list(dict.fromkeys(
+        value for value in (video_url(item) for item in (product.get('videos') or [])) if value
+    ))
+    cover = video_url(product.get('coverVideoUrl')) or (flat_videos[0] if flat_videos else '')
+    description_videos = [video_url(item) for item in (product.get('videoList') or [])]
+    if not description_videos:
+        description_videos = [value for value in flat_videos if value != cover]
+    description_videos = list(dict.fromkeys(
+        value for value in description_videos if value and value != cover
+    ))[:5]
+
+    if cover:
+        attrs.append({'id': 21845, 'values': [{'value': cover}]})
+    if description_videos:
+        attrs.append({
+            'id': 21841,
+            'values': [{'value': value} for value in description_videos],
+        })
+    return attrs
+
+
 def build_ozon_product_item(product, store_id=None):
     """将本地商品数据组装为 Ozon /v3/product/import 要求的 item 格式
 
@@ -1818,6 +1992,7 @@ def build_ozon_product_item(product, store_id=None):
     product_attrs = product.get('attributes', [])
     if isinstance(product_attrs, list):
         product_attrs = _inject_merge_code_to_model_attr(product_attrs, product.get('mergeCode', ''))
+        product_attrs = _inject_product_video_attributes(product_attrs, product)
 
     # 基础 item（产品级）
     # currency_code: 必须与店铺合同币种一致（Ozon 不允许跨币种发布）

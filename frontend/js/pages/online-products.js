@@ -249,6 +249,9 @@ function bindOnlineSourcePopover() {
 
 /** Ozon 后端内容评分；未返回时不伪造等级。 */
 function renderContentScore(score) {
+  if (score === null || score === undefined || score === '') {
+    return '<span style="color:var(--text-muted)">未评分</span>';
+  }
   const value = Number(score);
   if (!Number.isFinite(value)) return '<span style="color:var(--text-muted)">未评分</span>';
   const color = value >= 80 ? '#16803c' : value >= 50 ? '#b36b00' : '#c73535';
@@ -614,8 +617,21 @@ function createWarehouseFromProduct(id) {
 }
 
 /** 同步内容评级 */
-function syncContentRating() {
-  syncProducts();
+async function syncContentRating() {
+  if (isBackendUnavailable) {
+    Toast.show('后端未连接，无法同步内容评分', 'warning');
+    return;
+  }
+  Toast.show('正在从 Ozon 同步内容评分...', 'info');
+  const response = await Api.syncOnlineProductContentScores();
+  if (!response || response.code !== 200) {
+    Toast.show(response?.msg || '内容评分同步失败', 'error');
+    return;
+  }
+  await reloadOnlineProducts();
+  filterOnlineProducts();
+  const data = response.data || {};
+  Toast.show(`内容评分同步完成：更新 ${data.updated || 0}，未评分 ${data.unrated || 0}，失败 ${data.failed || 0}`, 'success');
 }
 
 /** 切换「更多」下拉 */

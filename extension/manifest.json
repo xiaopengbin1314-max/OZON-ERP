@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "GeekOzon ERP",
-  "version": "3.0.0",
+  "version": "3.0.2",
   "description": "Ozon / 1688 / 淘宝 / 天猫 / 拼多多 / 京东 / 速卖通 / Wildberries 商品采集与 ERP 管理（源码化重写版 v3）",
   "permissions": [
     "activeTab", "storage", "scripting", "contextMenus",

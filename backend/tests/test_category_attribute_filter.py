@@ -9,7 +9,12 @@ if BACKEND_DIR not in sys.path:
     sys.path.insert(0, BACKEND_DIR)
 
 from routes.category_routes import _filter_common_attrs
-from routes.product_routes import _clean_marketplace_product, _normalize_source_category
+from routes.product_routes import (
+    _clean_marketplace_product,
+    _extract_ozon_product_type_signal,
+    _normalize_product_video_fields,
+    _normalize_source_category,
+)
 from services.ozon_api import validate_category_pair
 from services.category_matcher import (
     _build_flat_categories,
@@ -21,6 +26,72 @@ from services.category_matcher import (
 
 
 class CategoryAttributeFilterTests(unittest.TestCase):
+    def test_ozon_video_attributes_are_classified_into_product_video_fields(self):
+        product = {
+            'attributes': [
+                {'id': 21845, 'value': 'https://cdn.test/cover.mp4'},
+                {'id': 21841, 'values': [
+                    {'value': 'https://cdn.test/a.mp4'},
+                    {'value': 'https://cdn.test/b.mp4'},
+                ]},
+                {'id': 21837, 'value': 'Demo title'},
+                {'id': 22273, 'value': 'SKU-1, SKU-2'},
+            ],
+            'videos': ['https://cdn.test/a.mp4'],
+        }
+
+        _normalize_product_video_fields(product)
+
+        self.assertEqual('https://cdn.test/cover.mp4', product['coverVideoUrl'])
+        self.assertEqual(['https://cdn.test/a.mp4', 'https://cdn.test/b.mp4'], product['videoList'])
+        self.assertEqual([
+            'https://cdn.test/cover.mp4', 'https://cdn.test/a.mp4', 'https://cdn.test/b.mp4',
+        ], product['videos'])
+        self.assertEqual([21845, 21841], [attr['id'] for attr in product['attributes']])
+
+    def test_erp_video_fields_replace_stale_video_attributes(self):
+        product = {
+            'coverVideoUrl': 'https://cdn.test/new-cover.mp4',
+            'videoList': ['https://cdn.test/new-description.mp4'],
+            'videos': ['https://cdn.test/new-cover.mp4', 'https://cdn.test/new-description.mp4'],
+            'attributes': [
+                {'id': 21845, 'value': 'https://cdn.test/old-cover.mp4'},
+                {'id': 21841, 'value': 'https://cdn.test/old-description.mp4'},
+            ],
+        }
+
+        _normalize_product_video_fields(product)
+
+        self.assertEqual('https://cdn.test/new-cover.mp4', product['coverVideoUrl'])
+        self.assertEqual(['https://cdn.test/new-description.mp4'], product['videoList'])
+        self.assertEqual(
+            [{'value': 'https://cdn.test/new-cover.mp4'}],
+            product['attributes'][0]['values'],
+        )
+        self.assertEqual(
+            [{'value': 'https://cdn.test/new-description.mp4'}],
+            product['attributes'][1]['values'],
+        )
+
+    def test_ozon_type_characteristic_is_strong_category_signal(self):
+        product = {
+            'platform': 'ozon',
+            'attributes': [{'name': 'Тип', 'value': 'Сумка для сменной обуви'}],
+        }
+
+        self.assertEqual(
+            'Сумка для сменной обуви',
+            _extract_ozon_product_type_signal(product),
+        )
+
+    def test_non_ozon_type_characteristic_is_not_promoted(self):
+        product = {
+            'platform': '1688',
+            'attributes': [{'name': '类型', 'value': '收纳袋'}],
+        }
+
+        self.assertEqual('', _extract_ozon_product_type_signal(product))
+
     def test_1688_payload_is_cleaned_before_erp_backfill(self):
         product = {
             'platform': '1688',

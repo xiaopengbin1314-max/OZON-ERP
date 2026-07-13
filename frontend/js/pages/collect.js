@@ -2560,7 +2560,8 @@ function generateSkuTable() {
 
   // 产品主图来源（直接使用 product.images）
   const productImagesSource = Array.isArray(window._editingProduct?.images)
-    ? window._editingProduct.images
+    ? window._editingProduct.images.filter(url =>
+        url && !/\/s3\/video-|\/video\//i.test(String(url)))
     : [];
 
   // 颜色名匹配辅助：处理"中文（俄语）"格式与原始颜色名的匹配
@@ -2598,9 +2599,16 @@ function generateSkuTable() {
       || (comboFallbackKey ? savedSkuFallbackMap[comboFallbackKey] : undefined)
       || (savedSkus.length === combos.length ? savedSkus[i] : undefined);
 
-    // SKU 图片属于具体变体，不能追加商品公共图集。
+    // 多 SKU 图片属于具体变体，不能追加其他变体的公共图集。
+    // 单 SKU 商品的 savedSku.images 常只有变体封面，但 product.images
+    // 保存了完整 gallery；此时必须合并，否则编辑器只显示一张图。
     if (savedSku && Array.isArray(savedSku.images) && savedSku.images.length > 0) {
-      window._skuImages[i] = [...new Set(savedSku.images.filter(Boolean))].slice(0, 30);
+      const savedImages = savedSku.images.filter(url =>
+        url && !/\/s3\/video-|\/video\//i.test(String(url)));
+      const mergedImages = combos.length === 1
+        ? savedImages.concat(productImagesSource.filter(url => !savedImages.includes(url)))
+        : savedImages;
+      window._skuImages[i] = [...new Set(mergedImages)].slice(0, 30);
       return;
     }
 

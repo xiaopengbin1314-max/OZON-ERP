@@ -406,6 +406,41 @@ def _positive_number(value):
     return number if number > 0 else 0
 
 
+def _normalize_collected_images(product_data):
+    """Keep product galleries complete and prevent video covers becoming images."""
+    def normalize_urls(values):
+        if isinstance(values, str):
+            values = [values]
+        if not isinstance(values, list):
+            return []
+        normalized = []
+        seen = set()
+        for raw in values:
+            if isinstance(raw, dict):
+                raw = raw.get('url') or raw.get('src') or raw.get('image') or ''
+            url = str(raw or '').strip()
+            if not url or not url.startswith(('http://', 'https://')):
+                continue
+            if re.search(r'/s3/video-|/video/', url, flags=re.IGNORECASE):
+                continue
+            if url not in seen:
+                seen.add(url)
+                normalized.append(url)
+        return normalized
+
+    product_images = normalize_urls(product_data.get('images'))
+    product_data['images'] = product_images
+
+    skus = product_data.get('skus')
+    if isinstance(skus, list) and len(skus) == 1 and isinstance(skus[0], dict):
+        sku = skus[0]
+        sku_images = normalize_urls(sku.get('images'))
+        sku['images'] = sku_images + [url for url in product_images if url not in sku_images]
+        if sku['images']:
+            sku['coverImage'] = sku.get('coverImage') or sku.get('cover_image') or sku['images'][0]
+    return product_data
+
+
 def _normalize_collected_dimensions(product_data):
     """Keep persisted package dimensions in mm and repair repeated conversion."""
     dimensions = product_data.get('dimensions')
@@ -513,6 +548,7 @@ def _normalize_publish_fields_for_persistence(product_data):
             normalized_attrs.append(attr)
         product_data['attributes'] = normalized_attrs
 
+    _normalize_collected_images(product_data)
     _normalize_collected_dimensions(product_data)
     _normalize_product_video_fields(product_data)
     ensure_platform_sku_codes(product_data)

@@ -11,6 +11,7 @@ if BACKEND_DIR not in sys.path:
 from routes.product_routes import (
     _classify_ozon_content,
     _merge_scanner_skus,
+    _normalize_collected_images,
     _normalize_collected_dimensions,
     _normalize_publish_fields_for_persistence,
     _should_accept_category_match,
@@ -26,6 +27,38 @@ from services.publish_service import (
 
 
 class CollectionPublishIntegrityTests(unittest.TestCase):
+    def test_single_sku_inherits_complete_product_gallery(self):
+        product = {
+            'images': [
+                'https://cdn.example/cover.jpg',
+                'https://cdn.example/second.jpg',
+                'https://cdn.example/s3/video-1/cover/cover.jpg',
+            ],
+            'skus': [{
+                'coverImage': 'https://cdn.example/cover.jpg',
+                'images': ['https://cdn.example/cover.jpg'],
+            }],
+        }
+
+        _normalize_collected_images(product)
+
+        self.assertEqual(2, len(product['images']))
+        self.assertEqual(product['images'], product['skus'][0]['images'])
+
+    def test_multi_sku_images_are_not_mixed_with_product_gallery(self):
+        product = {
+            'images': ['https://cdn.example/common.jpg'],
+            'skus': [
+                {'images': ['https://cdn.example/red.jpg']},
+                {'images': ['https://cdn.example/blue.jpg']},
+            ],
+        }
+
+        _normalize_collected_images(product)
+
+        self.assertEqual(['https://cdn.example/red.jpg'], product['skus'][0]['images'])
+        self.assertEqual(['https://cdn.example/blue.jpg'], product['skus'][1]['images'])
+
     def test_repeated_dimension_conversion_uses_sku_mm_value(self):
         product = {
             'length': 33000,

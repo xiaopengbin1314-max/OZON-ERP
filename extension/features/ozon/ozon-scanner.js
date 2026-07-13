@@ -178,6 +178,11 @@
     return String(url || '').replace(/\/wc\d+/g, '');
   }
 
+  function isProductImageUrl(url) {
+    const normalized = String(url || '').trim();
+    return !!normalized && !/\/s3\/video-|\/video\//i.test(normalized);
+  }
+
   /**
    * 解析重量文本为克数（整数）
    * 支持 "250 г" / "0.25 кг" / "250g" / "0.25 kg" / "250 грамм"
@@ -354,7 +359,7 @@
         if (!rawSrc) continue;
         // 去除尺寸后缀得到原图 URL（wc50/X.jpg → X.jpg）
         const src = stripImageSize(rawSrc);
-        if (!src || seen[src]) continue;
+        if (!isProductImageUrl(src) || seen[src]) continue;
         seen[src] = 1;
         urls.push(src);
       }
@@ -1799,7 +1804,7 @@
           const imgs = Array.isArray(gallery.images) ? gallery.images : [];
           product.images = imgs.map(function (img) {
             return stripImageSize(typeof img === 'string' ? img : (img.url || img.src || ''));
-          }).filter(Boolean);
+          }).filter(isProductImageUrl);
           // 视频提取（对齐毛子 ERP：直接取 widget.videos 数组）
           // 数组元素结构由 Ozon 决定，原样透传给后端/前端使用
           product.videos = Array.isArray(gallery.videos) ? gallery.videos.slice() : [];
@@ -2559,7 +2564,7 @@
           // DOM 可能只渲染当前可见缩略图，API 图集必须做并集合并而非仅在空时兜底。
           const apiImages = detailRes.product.images.map(function (u) {
             return stripImageSize(typeof u === 'string' ? u : (u.url || u.src || ''));
-          }).filter(Boolean);
+          }).filter(isProductImageUrl);
           product.images = Array.from(new Set((product.images || []).concat(apiImages)));
           product.mainImage = product.images[0] || product.mainImage;
         }
@@ -2644,6 +2649,19 @@
           // 价格获取失败不影响主流程，使用 aspectsNew 兜底
           console.warn('[GeekOzon] 变体价格获取失败，使用 aspectsNew 兜底', e);
         }
+      }
+
+      // A one-variant product still owns the complete product gallery. Ozon's
+      // variant endpoint may return only its cover image, so merge the gallery
+      // into that sole SKU instead of persisting a one-image SKU.
+      if (allVariants.length === 1 && Array.isArray(product.images) && product.images.length) {
+        const variant = allVariants[0];
+        const variantImages = self._extractVariantImages(variant).filter(isProductImageUrl);
+        variant.images = Array.from(new Set(variantImages.concat(
+          product.images.filter(isProductImageUrl)
+        )));
+        variant.coverImage = variant.coverImage || variant.images[0] || '';
+        variant.picture = variant.picture || variant.coverImage;
       }
 
       // === 字段统一：originalPrice → oldPrice ===
